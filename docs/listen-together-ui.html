@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Listen Together — UI Reference</title>
+  <!-- Tailwind CSS CDN for base utilities -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <!-- Noto Serif JP for Japanese lyrics -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ========== RESET & BASE ========== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    :root {
+      --bg-main: #F5F0E6;
+      --bg-nav: #EDE8DB;
+      --bg-card: #FFFFFF;
+      --bg-pill-selected: #D4C9A8;
+      --bg-green-badge: #8BC34A;
+      --text-primary: #1C1932;
+      --text-secondary: #6B6880;
+      --text-tertiary: #9A97A8;
+      --progress-fill: #5C5470;
+      --progress-track: #E0D8C8;
+      --btn-default: #E8E2D4;
+      --border: #DDD6C6;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-card: 0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+      --shadow-cover: 0 4px 16px rgba(0,0,0,0.12);
+      --font-serif: Georgia, 'Times New Roman', serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-lyric: 'Noto Serif JP', Georgia, serif;
+
+      /* Brand accent (configurable per station) */
+      --lt-accent: #8BC34A;
+      --lt-accent-soft: rgba(139, 195, 74, 0.15);
+      --lt-accent-text: #5a8a2a;
+    }
+
+    /* ========== DARK MODE ========== */
+    :root[data-theme="dark"] {
+      --bg-main: #1A1820;
+      --bg-nav: #141218;
+      --bg-card: #22202A;
+      --bg-pill-selected: #2E2B38;
+      --text-primary: rgba(240, 236, 255, 0.94);
+      --text-secondary: rgba(240, 236, 255, 0.55);
+      --text-tertiary: rgba(240, 236, 255, 0.30);
+      --progress-fill: #A29BFE;
+      --progress-track: #2E2B3A;
+      --btn-default: #2A2832;
+      --border: #2E2B3A;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.32);
+      --shadow-card: 0 2px 8px rgba(0,0,0,0.36), 0 8px 24px rgba(0,0,0,0.24);
+      --shadow-cover: 0 4px 16px rgba(0,0,0,0.48);
+
+      /* Brand accent in dark mode */
+      --lt-accent: #8BC34A;
+      --lt-accent-soft: rgba(139, 195, 74, 0.12);
+      --lt-accent-text: #A5D66A;
+    }
+
+    /* ========== LAYOUT ========== */
+    .app-container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      background: var(--bg-main);
+    }
+
+    /* ========== LEFT NAV ========== */
+    .left-nav {
+      width: 220px;
+      min-width: 220px;
+      background: var(--bg-nav);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px 16px;
+    }
+    .nav-brand {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      padding: 0 16px 20px;
+      letter-spacing: -0.3px;
+    }
+    .nav-items {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 18px;
+      font-family: var(--font-serif);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      user-select: none;
+    }
+    .nav-item:hover { background: rgba(212,201,168,0.4); }
+    .nav-item.active {
+      background: var(--bg-pill-selected);
+      color: var(--text-primary);
+    }
+    .nav-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: transparent;
+      flex-shrink: 0;
+    }
+    .nav-item.active .nav-dot {
+      background: var(--lt-accent);
+    }
+    .nav-spacer { flex: 1; }
+    .nav-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .nav-user:hover { background: rgba(212,201,168,0.3); }
+    .nav-user-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: #fff;
+      flex-shrink: 0;
+    }
+    .nav-user-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ========== CENTER CONTENT ========== */
+    .center-content {
+      flex: 1;
+      background: var(--bg-main);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 24px;
+      gap: 16px;
+    }
+
+    /* --- Group List Card --- */
+    .group-list-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .group-list-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .group-list-header svg {
+      width: 18px; height: 18px;
+      color: var(--text-primary);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .group-list-title {
+      font-family: var(--font-serif);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .listener-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .listener-row:last-child { border-bottom: none; }
+    .listener-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: #fff;
+      flex-shrink: 0;
+    }
+    .listener-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .listener-badge {
+      margin-left: auto;
+      background: var(--lt-accent);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* --- Now Playing Card --- */
+    .now-playing-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .cover-art {
+      width: 240px; height: 240px;
+      border-radius: 12px;
+      box-shadow: var(--shadow-cover);
+      overflow: hidden;
+      display: flex; align-items: flex-end; justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .cover-art-inner {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #2D1B69, #1A1A3E, #4A2C6E);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cover-art-label {
+      color: rgba(255,255,255,0.6);
+      font-family: var(--font-serif);
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      text-align: center;
+      padding: 12px;
+      text-transform: uppercase;
+    }
+    .cover-art-overlay {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.5));
+      padding: 16px;
+      text-align: center;
+    }
+    .cover-art-overlay span {
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+    .track-info {
+      text-align: center;
+      margin-top: 20px;
+      width: 100%;
+      max-width: 300px;
+    }
+    .track-title {
+      font-family: var(--font-sans);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .track-artist {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .track-album {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+    .progress-section {
+      width: 100%;
+      max-width: 300px;
+      margin-top: 18px;
+    }
+    .progress-bar-track {
+      width: 100%;
+      height: 4px;
+      background: var(--progress-track);
+      border-radius: 2px;
+      position: relative;
+      cursor: pointer;
+    }
+    .progress-bar-fill {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      width: 75%;
+      background: var(--progress-fill);
+      border-radius: 2px;
+      transition: width 0.3s linear;
+    }
+    .progress-bar-thumb {
+      position: absolute;
+      top: 50%; right: -6px;
+      transform: translateY(-50%);
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--progress-fill);
+      box-shadow: 0 0 4px rgba(92,84,112,0.3);
+    }
+    .progress-times {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .ctrl-btn {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--text-primary);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .ctrl-btn:hover {
+      background: var(--btn-default);
+      border-color: var(--bg-pill-selected);
+    }
+    .ctrl-btn svg { width: 20px; height: 20px; }
+    .ctrl-btn-play {
+      width: 48px; height: 48px;
+      border: none;
+      background: var(--text-primary);
+      color: #fff;
+    }
+    .ctrl-btn-play:hover {
+      background: color-mix(in srgb, var(--text-primary) 85%, transparent);
+    }
+    .ctrl-btn-play svg { width: 22px; height: 22px; }
+
+    /* --- Play Next Queue --- */
+    .queue-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .queue-title {
+      font-family: var(--font-serif);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .queue-add-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 5px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .queue-add-btn:hover {
+      background: var(--btn-default);
+      border-color: var(--bg-pill-selected);
+    }
+    .queue-add-btn svg { width: 14px; height: 14px; }
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+    }
+    .queue-item:not(:last-child) {
+      border-bottom: 1px solid var(--border);
+    }
+    .queue-thumb {
+      width: 48px; height: 48px;
+      border-radius: 8px;
+      background: var(--btn-default);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .queue-thumb svg {
+      width: 18px; height: 18px;
+      color: var(--text-secondary);
+    }
+    .queue-item-info { min-width: 0; }
+    .queue-item-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .queue-item-artist {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+    .queue-item-play-icon {
+      margin-left: auto;
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .queue-item-play-icon:hover {
+      color: var(--text-primary);
+      background: var(--btn-default);
+    }
+    .queue-item-play-icon svg { width: 14px; height: 14px; }
+
+    /* ========== RIGHT LYRICS PANEL ========== */
+    .right-lyrics {
+      width: 300px;
+      min-width: 300px;
+      background: var(--bg-nav);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+      padding: 32px 20px;
+    }
+    .lyrics-fade-top,
+    .lyrics-fade-bottom {
+      position: absolute;
+      left: 0; right: 0;
+      height: 60px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .lyrics-fade-top {
+      top: 0;
+      background: linear-gradient(to bottom, var(--bg-nav) 0%, transparent 100%);
+    }
+    .lyrics-fade-bottom {
+      bottom: 0;
+      background: linear-gradient(to top, var(--bg-nav) 0%, transparent 100%);
+    }
+    .lyrics-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+      overflow-y: auto;
+      padding: 40px 8px;
+      mask-image: linear-gradient(transparent 0%, black 8%, black 92%, transparent 100%);
+      -webkit-mask-image: linear-gradient(transparent 0%, black 8%, black 92%, transparent 100%);
+    }
+    .lyric-line {
+      font-family: var(--font-lyric);
+      text-align: center;
+      padding: 8px 0;
+      line-height: 1.6;
+      transition: font-size 0.3s, color 0.3s, opacity 0.3s;
+      width: 100%;
+    }
+    .lyric-line.active {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      opacity: 1;
+    }
+    .lyric-line.inactive {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      opacity: 0.55;
+    }
+    .lyric-line.far {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      opacity: 0.3;
+    }
+    .lyric-line.instrumental {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      opacity: 0.5;
+      letter-spacing: 2px;
+    }
+    .lyrics-note-icon {
+      margin-top: 8px;
+      margin-bottom: 12px;
+      opacity: 0.25;
+    }
+    .lyrics-note-icon svg { width: 20px; height: 20px; color: var(--text-secondary); }
+
+    /* ========== THEME SWITCHER ========== */
+    .nav-theme-switcher {
+      display: flex;
+      gap: 4px;
+      padding: 8px 16px;
+      background: var(--bg-card);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .theme-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .theme-btn:hover {
+      background: var(--bg-pill-selected);
+      color: var(--text-primary);
+    }
+    .theme-btn.active {
+      background: var(--lt-accent-soft);
+      border-color: var(--lt-accent);
+      color: var(--lt-accent-text);
+    }
+    .theme-btn svg { pointer-events: none; }
+
+    /* ========== SCROLLBAR STYLING ========== */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--bg-pill-selected); }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ============================================================
+       LEFT NAVIGATION BAR
+       ============================================================ -->
+  <nav class="left-nav">
+    <div class="nav-brand">Listen Together</div>
+    <div class="nav-items">
+      <div class="nav-item active">
+        <span class="nav-dot"></span>
+        <span>Now Listening</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-dot"></span>
+        <span>My Library</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-dot"></span>
+        <span>Account</span>
+      </div>
+    </div>
+    <!-- Theme switcher demo -->
+    <div class="nav-theme-switcher">
+      <button class="theme-btn active" data-theme="light" title="浅色模式">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </svg>
+      </button>
+      <button class="theme-btn" data-theme="dark" title="深色模式">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <button class="theme-btn" data-theme="auto" title="跟随系统">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <path d="M14 15h7M14 19h7M17 15v8"/>
+          <circle cx="6.5" cy="6.5" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-user">
+      <!-- 模拟用户头像：渐变圆 + 首字母 -->
+      <div class="nav-user-avatar" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">K</div>
+      <span class="nav-user-name">Kaze</span>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       CENTER CONTENT AREA
+       ============================================================ -->
+  <main class="center-content">
+
+    <!-- ====================================
+         SECTION 1: GROUP LIST (在线听众列表)
+         数据源: WebSocket `listeners_update` 消息 → store.onlineListenerNames
+         ==================================== -->
+    <div class="group-list-card">
+      <div class="group-list-header">
+        <!-- 返回箭头 SVG icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span class="group-list-title">Group List</span>
+      </div>
+
+      <!-- Listener: Cynan (NEXT badge = currently listening) -->
+      <div class="listener-row">
+        <div class="listener-avatar" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">C</div>
+        <span class="listener-name">Cynan</span>
+        <span class="listener-badge">Next</span>
+      </div>
+
+      <!-- Listener: Riona -->
+      <div class="listener-row">
+        <div class="listener-avatar" style="background: linear-gradient(135deg, #ec4899, #f97316);">R</div>
+        <span class="listener-name">Riona</span>
+      </div>
+
+      <!-- Listener: Lin Verse -->
+      <div class="listener-row">
+        <div class="listener-avatar" style="background: linear-gradient(135deg, #06b6d4, #3b82f6);">L</div>
+        <span class="listener-name">Lin Verse</span>
+      </div>
+    </div>
+
+    <!-- ====================================
+         SECTION 2: NOW PLAYING (主播放卡片)
+         数据源:
+           - 曲目信息: WebSocket `playback_state` → store.playbackState (title, artist, album)
+           - 封面: REST API `GET /api/songs/{id}/cover` 或 playbackState.cover_url
+           - 进度条: store.displayPositionMs / store.playbackState.duration_ms
+           - 播放控件: audioEl.play()/pause() + admin API POST /api/admin/playlist/next|prev
+         ==================================== -->
+    <div class="now-playing-card">
+
+      <!-- Album Cover Art (placeholder: gradient + label) -->
+      <div class="cover-art">
+        <div class="cover-art-inner"></div>
+        <div class="cover-art-overlay">
+          <span>It's Raining After All</span>
+        </div>
+      </div>
+
+      <!-- Track Info -->
+      <div class="track-info">
+        <div class="track-title">I'm getting on the bus to the other world...</div>
+        <div class="track-artist">YOASOBI</div>
+        <div class="track-album">It's Raining After All</div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-section">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill">
+            <div class="progress-bar-thumb"></div>
+          </div>
+        </div>
+        <div class="progress-times">
+          <span>4:45</span>
+          <span>-1:24</span>
+        </div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="controls">
+        <!-- Previous Track -->
+        <button class="ctrl-btn" title="Previous">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/>
+          </svg>
+        </button>
+        <!-- Pause (currently playing) -->
+        <button class="ctrl-btn ctrl-btn-play" title="Pause">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+          </svg>
+        </button>
+        <!-- Next Track -->
+        <button class="ctrl-btn" title="Next">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 18h2V6h-2v12zM5.5 6l8.5 6-8.5 6V6z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ====================================
+         SECTION 3: PLAY NEXT QUEUE (待播队列)
+         数据源:
+           - 队列列表: REST API `GET /api/queue` → store.queue
+           - 队列项封面: GET /api/songs/{id}/cover
+           - 添加按钮: 弹出搜索面板 → GET /api/songs?q=xxx + POST /api/queue
+         ==================================== -->
+    <div class="queue-card">
+      <div class="queue-header">
+        <span class="queue-title">Play Next</span>
+        <button class="queue-add-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Add</span>
+        </button>
+      </div>
+
+      <!-- Queue Item 1 -->
+      <div class="queue-item">
+        <div class="queue-thumb">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        </div>
+        <div class="queue-item-info">
+          <div class="queue-item-title">With or Without Me</div>
+          <div class="queue-item-artist">Pianochill</div>
+        </div>
+        <div class="queue-item-play-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+
+      <!-- Queue Item 2 -->
+      <div class="queue-item">
+        <div class="queue-thumb">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        </div>
+        <div class="queue-item-info">
+          <div class="queue-item-title">With or Without Me</div>
+          <div class="queue-item-artist">Pianochill</div>
+        </div>
+        <div class="queue-item-play-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+
+      <!-- Queue Item 3 -->
+      <div class="queue-item">
+        <div class="queue-thumb">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        </div>
+        <div class="queue-item-info">
+          <div class="queue-item-title">With or Without Me</div>
+          <div class="queue-item-artist">Pianochill</div>
+        </div>
+        <div class="queue-item-play-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+
+      <!-- Queue Item 4 -->
+      <div class="queue-item">
+        <div class="queue-thumb">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+        </div>
+        <div class="queue-item-info">
+          <div class="queue-item-title">With or Without Me</div>
+          <div class="queue-item-artist">Pianochill</div>
+        </div>
+        <div class="queue-item-play-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ============================================================
+       RIGHT LYRICS PANEL
+       数据源: WebSocket `playback_state.lyrics_lines` → store.lyricsLines
+       ============================================================ -->
+  <aside class="right-lyrics">
+    <div class="lyrics-fade-top"></div>
+    <div class="lyrics-fade-bottom"></div>
+    <div class="lyrics-content">
+
+      <!-- Music note icon -->
+      <div class="lyrics-note-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
+        </svg>
+      </div>
+
+      <!-- Placeholder Japanese lyrics (not real lyrics) -->
+      <div class="lyric-line far">あめふりの歌</div>
+      <div class="lyric-line far">雨が降ってきた</div>
+      <div class="lyric-line far">傘を持っていない</div>
+      <div class="lyric-line inactive">バス停で待つ</div>
+      <div class="lyric-line inactive">君のことを思う</div>
+      <div class="lyric-line inactive">遠い空の色が</div>
+      <div class="lyric-line active">この胸を照らす</div>
+      <div class="lyric-line inactive">雨音に消えてく</div>
+      <div class="lyric-line inactive">思い出のページを</div>
+      <div class="lyric-line inactive">めくっていくのだ</div>
+      <div class="lyric-line inactive">涙のあとに</div>
+      <div class="lyric-line inactive">虹がかかるように</div>
+      <div class="lyric-line inactive">步き出そう</div>
+      <div class="lyric-line inactive">君と二人で</div>
+      <div class="lyric-line far">この雨がやむまで</div>
+      <div class="lyric-line far">そばにいるよ</div>
+      <div class="lyric-line far">ずっと</div>
+
+      <!-- Spacer at bottom for fade -->
+      <div style="height: 40px;"></div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // Theme switcher demo — toggles data-theme attribute on <html>
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.theme;
+      document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (theme === 'auto') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

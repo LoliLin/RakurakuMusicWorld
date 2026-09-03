@@ -37,17 +37,6 @@ opencode.json
 .DS_Store
 Thumbs.db
 
-# 开发文档（非必要，仅本地参考）
-docs/
-!docs/
-docs/*
-!docs/TECHNICAL.md
-!docs/screenshots/
-docs/screenshots/*
-!docs/screenshots/*.png
-UPDATE_GUIDE.md
-radio-backend/frontend/FRONTEND.md
-
 # 媒体文件目录
 media/
 media_backup/
@@ -77,3 +66,6 @@ radio-backend/.migration_hash
 # 迁移遗留产物
 Rakurakumusicstation-NG/
 radio-backend/frontend/tsconfig.tsbuildinfo
+
+output/
+tmp/
