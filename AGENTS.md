@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Rakuraku Music Station — a community radio web app: users request songs, an embedded audio engine plays them into an MP3 stream, and a React SPA shows now-playing, lyrics, queue, and admin panels. The project is Chinese-language (code comments and UI strings are often zh-CN).
+RakurakuMusicWorld — a community radio web app: users request songs, an embedded audio engine plays them into an MP3 stream, and a React SPA shows now-playing, lyrics, queue, and admin panels. The project is Chinese-language (code comments and UI strings are often zh-CN).
 
 Runtime shape: a single Rust binary `radio-backend` (axum 0.7 + SQLite) with the local `radio-engine` crate embedded as a library (no separate audio process, no Redis, no HTTP IPC) serves REST on `/api`, WebSocket on `/ws`, audio on `/stream`, and the built frontend from `radio-backend/static/` on port `2241`. The legacy C++ engine and old dual-process deploy files are removed; do not reintroduce them. Repo root still holds pre-rewrite assets (`index.html`, `login.html`, `panel.html`, `sw.js`, `music_dl.py`, `sessionmanager.hpp`, `third_party/hiredis`) that are **not** part of the current runtime — leave them alone.
 

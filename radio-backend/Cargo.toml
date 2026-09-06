@@ -2,7 +2,7 @@
 name = "radio-backend"
 version = "3.1.0-beta"
 edition = "2021"
-description = "Rakuraku Music Station - Rust Business Backend"
+description = "RakurakuMusicWorld - Rust Business Backend"
 
 [dependencies]
 # 异步运行时

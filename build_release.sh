@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Rakuraku Music Station - Release Build Script
+# RakurakuMusicWorld - Release Build Script
 # =============================================================================
 #
 # Usage:
@@ -45,7 +45,7 @@ VERSION="3.0"
 
 echo -e "${BLUE}
 ══════════════════════════════════════════════
-    Rakuraku Music Station v${VERSION} 构建工具
+    RakurakuMusicWorld v${VERSION} 构建工具
 ══════════════════════════════════════════════${NC}
 "
 
@@ -134,7 +134,7 @@ cat > "$DIST_DIR/start.sh" << 'STARTEMBED'
 #!/bin/bash
 cd "$(dirname "$0")"
 
-echo "启动 Rakuraku Music Station..."
+echo "启动 RakurakuMusicWorld..."
 
 if [ -f .server.pid ] && kill -0 $(cat .server.pid) 2>/dev/null; then
     echo "服务器已在运行中 (PID $(cat .server.pid))"
@@ -154,7 +154,7 @@ cat > "$DIST_DIR/stop.sh" << 'STOPEMBED'
 #!/bin/bash
 cd "$(dirname "$0")"
 
-echo "停止 Rakuraku Music Station..."
+echo "停止 RakurakuMusicWorld..."
 
 if [ -f .server.pid ]; then
     PID=$(cat .server.pid)

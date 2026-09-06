@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-REPO_URL="${RAKURAKU_REPO:-https://github.com/Risaly-Noroki-Dev-Club/Rakurakumusicstation-NG.git}"
+REPO_URL="${RAKURAKU_REPO:-https://github.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld.git}"
 REF="${RAKURAKU_REF:-main}"
-SERVICE_NAME="rakuraku-music-station"
-INSTALL_DIR="${RAKURAKU_INSTALL_DIR:-/opt/rakuraku-music-station}"
+SERVICE_NAME="rakuraku-music-world"
+INSTALL_DIR="${RAKURAKU_INSTALL_DIR:-/opt/rakuraku-music-world}"
 DATA_DIR="${RAKURAKU_DATA_DIR:-/var/lib/rakuraku}"
 CONFIG_DIR="${RAKURAKU_CONFIG_DIR:-/etc/rakuraku}"
 USER_NAME="${RAKURAKU_USER:-radio}"
@@ -74,7 +74,7 @@ build_project() {
 install_service() {
   cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<SERVICE
 [Unit]
-Description=Rakuraku Music Station
+Description=RakurakuMusicWorld
 After=network.target
 
 [Service]
@@ -119,7 +119,7 @@ ensure_user
 build_project
 install_service
 
-echo "Rakuraku Music Station is installed and running."
+echo "RakurakuMusicWorld is installed and running."
 echo "Open: http://localhost:${PORT}"
 echo "Config: ${CONFIG_DIR}/config.toml"
 echo "Media: ${DATA_DIR}/media"

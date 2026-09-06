@@ -1,4 +1,4 @@
-# Rakuraku Music Station NG — 前端设计规范 / Frontend Design Guide
+# RakurakuMusicWorld — 前端设计规范 / Frontend Design Guide
 
 > 面向接手本项目前端开发的工程师。本文档描写浏览器端 Web UI 的架构、色彩系统、API 交互约定与开发流程。
 

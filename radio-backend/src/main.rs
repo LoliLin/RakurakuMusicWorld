@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-/// Rakuraku Music Station NG - Rust 业务后端
+/// RakurakuMusicWorld - Rust 业务后端
 ///
 /// 处理 HTTP API、WebSocket 广播、设备身份验证（基于 Cookie）、
 /// 队列管理、歌词解析，并内嵌音频引擎。

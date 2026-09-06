@@ -45,7 +45,7 @@ export default function App() {
 
   // Title follows the station name.
   useEffect(() => {
-    document.title = station?.name ? `${station.name} · Rakuraku` : 'Rakuraku Music Station'
+    document.title = station?.name ? `${station.name} · Rakuraku` : 'RakurakuMusicWorld'
   }, [station?.name])
 
   return (

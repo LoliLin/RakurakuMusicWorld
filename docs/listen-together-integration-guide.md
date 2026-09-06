@@ -162,7 +162,7 @@ radio-backend/frontend/src/
 ```
 // station API 返回示例
 {
-  "name": "Rakuraku Music Station",
+  "name": "RakurakuMusicWorld",
   "short_name": "RR",
   "theme_color": "#8BC34A",
   "stream_url": "/stream",

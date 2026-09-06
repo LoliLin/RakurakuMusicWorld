@@ -753,7 +753,7 @@ async fn search_musicbrainz_candidates(song: &Song) -> Result<Vec<MetadataCandid
 fn http_client() -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
-        .user_agent("RakurakuMusicStation/3.1 (https://github.com/Risaly-Noroki-Dev-Club/Rakurakumusicstation-NG)")
+        .user_agent("RakurakuMusicWorld/3.1 (https://github.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld)")
         .build()?)
 }
 

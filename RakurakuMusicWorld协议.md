@@ -1,6 +1,6 @@
-# Rakurakumusicstation-NG 协议
+# RakurakuMusicWorld 协议
 
-> Rakuraku Music Station NG 前后端通信协议（v3）。前端实现见
+> RakurakuMusicWorld 前后端通信协议（v3）。前端实现见
 > `radio-backend/frontend/`（React 19 + Appica UI），后端见 `radio-backend/`（axum + SQLite + 内嵌 radio-engine）。
 > 本文件是修改后端时的**兼容性红线**：改字段/结构前先对照此文档，避免破坏前端。
 

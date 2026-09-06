@@ -2,7 +2,7 @@
 name = "radio-engine"
 version = "3.1.0-beta"
 edition = "2021"
-description = "Rakuraku Music Station - Audio Engine (Rust rewrite)"
+description = "RakurakuMusicWorld - Audio Engine (Rust rewrite)"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }

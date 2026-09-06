@@ -1,6 +1,6 @@
 <div align="center">
 
-# Rakuraku Music Station NG
+# RakurakuMusicWorld
 
 **把一台普通服务器变成大家都能点歌的社区电台。**
 
@@ -55,10 +55,10 @@ Rust 音频引擎、Web 后端与 React 前端打包在同一个服务里：一�
 
 ### 一行安装到 Linux
 
-适用于带 `systemd` 的 Debian/Ubuntu、Arch Linux 和 Fedora。脚本安装构建与运行依赖、创建独立用户，并启用 `rakuraku-music-station` 服务。
+适用于带 `systemd` 的 Debian/Ubuntu、Arch Linux 和 Fedora。脚本安装构建与运行依赖、创建独立用户，并启用 `rakuraku-music-world` 服务。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Risaly-Noroki-Dev-Club/Rakurakumusicstation-NG/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld/main/install.sh | sudo bash
 ```
 
 安装完成后：
@@ -69,10 +69,10 @@ sudoedit /etc/rakuraku/config.toml
 
 # 放入音乐并重启；随后在网页管理面板执行“重新扫描”
 sudo cp /path/to/music/* /var/lib/rakuraku/media/
-sudo systemctl restart rakuraku-music-station
+sudo systemctl restart rakuraku-music-world
 
 # 查看运行日志
-journalctl -u rakuraku-music-station -f
+journalctl -u rakuraku-music-world -f
 ```
 
 默认访问地址为 `http://服务器地址:2241`。可通过 `RAKURAKU_PORT`、`RAKURAKU_REF`、`RAKURAKU_INSTALL_DIR`、`RAKURAKU_DATA_DIR` 等环境变量调整安装位置和版本。
@@ -82,8 +82,8 @@ journalctl -u rakuraku-music-station -f
 需要 Rust toolchain、Node.js/npm、`ffmpeg` 和 `ffprobe`。
 
 ```bash
-git clone https://github.com/Risaly-Noroki-Dev-Club/Rakurakumusicstation-NG.git
-cd Rakurakumusicstation-NG
+git clone https://github.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld.git
+cd RakurakuMusicWorld
 
 # 类型检查并构建 React 前端，然后构建 Rust release 二进制和 dist/
 ./build_release.sh
@@ -104,6 +104,36 @@ cd dist && ./stop.sh
 ```
 
 `build_release.sh` 会保留已有的 `dist/media/`、`dist/data/` 和 `dist/config.toml`，因此重复构建不会覆盖音乐、数据库或配置。已确认静态资源是最新版本时可传入 `--skip-frontend`。
+
+## 开发
+
+### Web 开发
+
+```bash
+# 终端 1：后端（需要 Rust toolchain、ffmpeg/ffprobe）
+cd radio-backend && cargo build && cargo run
+
+# 终端 2：前端 dev server（代理 /api /ws /stream 到 :2241）
+cd radio-backend/frontend && npm run dev
+```
+
+### Electron 桌面开发
+
+```bash
+# 后端照常运行在 :2241，然后一条命令启动桌面壳 + 前端 dev server
+cd radio-backend/frontend && npm run electron:dev
+```
+
+脚本会启动 Vite、等待就绪后打开 Electron 窗口加载 `http://localhost:5173`。后端尚未运行时页面会提示网络错误，属正常现象。
+
+### 桌面打包
+
+```bash
+cd radio-backend/frontend
+npm run electron:build
+```
+
+输出在 `radio-backend/frontend/release/`：Windows 为 NSIS 安装包（`RakurakuMusicWorld-Setup-*.exe`），Linux 为 AppImage 与 deb，macOS 为 dmg。应用 ID 为 `in.kawaiis.RakurakuMusicWorld`。
 
 ## 第一次使用
 

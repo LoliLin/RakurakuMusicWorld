@@ -1,6 +1,6 @@
 [Unit]
-Description=Rakuraku Music Station
-Documentation=https://github.com/example/rakuraku
+Description=RakurakuMusicWorld
+Documentation=https://github.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld
 After=network.target
 
 [Service]

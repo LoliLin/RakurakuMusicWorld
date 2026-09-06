@@ -208,10 +208,10 @@ fn default_request_cooldown() -> u64 {
     0
 }
 fn default_station_name() -> String {
-    "Rakuraku Music Station".into()
+    "RakurakuMusicWorld".into()
 }
 fn default_station_short_name() -> String {
-    "RakurakuRadio".into()
+    "RakurakuWorld".into()
 }
 fn default_subtitle() -> String {
     "A Community Radio".into()

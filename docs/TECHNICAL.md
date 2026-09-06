@@ -1,6 +1,6 @@
-# Rakuraku Music Station NG 技术文档
+# RakurakuMusicWorld 技术文档
 
-本文面向部署者与贡献者，集中说明 Rakuraku Music Station NG 的运行架构、配置方式、接口和开发验证流程。产品介绍、界面截图与快速上手请见项目 [README](../README.md)。
+本文面向部署者与贡献者，集中说明 RakurakuMusicWorld 的运行架构、配置方式、接口和开发验证流程。产品介绍、界面截图与快速上手请见项目 [README](../README.md)。
 
 ## 架构
 

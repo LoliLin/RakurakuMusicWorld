@@ -754,7 +754,7 @@
             <div class="settings-form">
                 <div class="form-group">
                     <label>站点名称:</label>
-                    <input type="text" id="stationName" placeholder="Rakuraku Music Station">
+                    <input type="text" id="stationName" placeholder="RakurakuMusicWorld">
                 </div>
                 <div class="form-group">
                     <label>副标题:</label>
@@ -1091,7 +1091,7 @@
                 }
 
                 const data = await res.json();
-                document.getElementById('stationName').value = data.station_name || 'Rakuraku Music Station';
+                document.getElementById('stationName').value = data.station_name || 'RakurakuMusicWorld';
                 document.getElementById('subtitle').value = data.subtitle || '极简流媒体服务器';
                 document.getElementById('primaryColor').value = data.primary_color || '#764ba2';
                 document.getElementById('secondaryColor').value = data.secondary_color || '#667eea';

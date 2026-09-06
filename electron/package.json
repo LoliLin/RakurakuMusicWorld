@@ -1,0 +1,7 @@
+{
+  "name": "rakuraku-music-world-desktop",
+  "productName": "RakurakuMusicWorld",
+  "version": "2.0.0",
+  "main": "main.mjs",
+  "private": true
+}

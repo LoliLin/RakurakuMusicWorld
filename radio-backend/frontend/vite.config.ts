@@ -32,6 +32,9 @@ export default defineConfig({
     },
   },
   server: {
+    // 双栈 localhost 在部分 Windows 机器上 ::1 不可用（ping 一般故障），固定 IPv4。
+    host: '127.0.0.1',
+    strictPort: true,
     port: 5173,
     proxy: {
       '/api': { target: proxyTarget, changeOrigin: true },
@@ -52,7 +55,8 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../static',
+    // Web 构建写入后端 static/；Electron 打包用 VITE_ELECTRON_OUT=dist 写入本地 dist/。
+    outDir: process.env.VITE_ELECTRON_OUT || '../static',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1500,
   },

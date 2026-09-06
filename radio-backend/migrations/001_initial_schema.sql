@@ -1,4 +1,4 @@
--- 迁移 001：Rakuraku Music Station NG 初始模式
+-- 迁移 001：RakurakuMusicWorld 初始模式
 
 -- 用户表：存储注册听众账号
 CREATE TABLE IF NOT EXISTS users (

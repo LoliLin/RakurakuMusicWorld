@@ -124,7 +124,7 @@ export function AdminStationSettings() {
               <FieldLabel>电台名称</FieldLabel>
               <Input
                 inputSize="sm"
-                placeholder="Rakuraku Music Station"
+                placeholder="RakurakuMusicWorld"
                 value={stationName}
                 onChange={(e) => setStationName(e.target.value)}
               />

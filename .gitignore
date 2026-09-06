@@ -64,7 +64,7 @@ radio-backend/.migration_hash
 *.tar.gz
 
 # 迁移遗留产物
-Rakurakumusicstation-NG/
+RakurakuMusicWorld/
 radio-backend/frontend/tsconfig.tsbuildinfo
 
 output/

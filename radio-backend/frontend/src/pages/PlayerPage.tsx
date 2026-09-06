@@ -44,7 +44,7 @@ function PlayerPane({ playback, position }: { playback: Playback | null; positio
           className="text-foreground-intense truncate text-3xl font-bold sm:text-4xl"
           title={onAir ? playback.title : station?.name}
         >
-          {onAir ? playback.title : station?.name ?? 'Rakuraku Music Station'}
+          {onAir ? playback.title : station?.name ?? 'RakurakuMusicWorld'}
         </h1>
         <p className="text-foreground-muted mt-1 truncate text-base">
           {onAir ? playback.artist || '\u00a0' : station?.subtitle || '\u00a0'}
