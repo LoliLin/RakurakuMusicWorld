@@ -15,6 +15,7 @@ mod models;
 mod routes;
 mod services;
 mod websocket;
+mod world;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
