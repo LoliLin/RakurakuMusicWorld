@@ -38,11 +38,13 @@ impl PlaybackSnapshotCache {
         self.last_full_message.clone()
     }
 
+    /// 构建 500ms 播放帧。曲目切换时额外返回 TrackChanged 事件
+    /// （Stage 2：只增事件，playback_state 契约不变）。
     pub(crate) async fn build_message(
         &mut self,
         state: &AppState,
         ps: &radio_engine::types::PlaybackState,
-    ) -> WsMessage {
+    ) -> (WsMessage, Option<WsMessage>) {
         self.refresh_on_song_change(state, ps).await;
 
         // 优先用 DB songs 里的 title/artist；查不到时回退到引擎自带的
@@ -79,8 +81,8 @@ impl PlaybackSnapshotCache {
         };
         let full = WsMessage::PlaybackState {
             song_id,
-            title,
-            artist,
+            title: title.clone(),
+            artist: artist.clone(),
             position_ms: ps.position_ms,
             duration_ms: ps.duration_ms,
             lyrics_line,
@@ -119,11 +121,22 @@ impl PlaybackSnapshotCache {
             timestamp_ms: chrono::Utc::now().timestamp_millis(),
         };
 
+        let track_changed = should_send_full_lyrics.then(|| {
+            WsMessage::TrackChanged {
+                song_id,
+                title: title.clone(),
+                artist: artist.clone(),
+                duration_ms: ps.duration_ms,
+                status: ps.status.clone(),
+                timestamp_ms: chrono::Utc::now().timestamp_millis(),
+            }
+        });
+
         if should_send_full_lyrics {
             self.last_full_message = Some(serde_json::to_string(&full).unwrap_or_default());
         }
 
-        full
+        (full, track_changed)
     }
 
     async fn refresh_on_song_change(

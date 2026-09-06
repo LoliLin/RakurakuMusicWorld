@@ -24,7 +24,7 @@ pub fn start_engine_state_poller(state: Arc<AppState>) {
 
             // 仅在有活跃订阅者时才发送消息
             if state_clone.ws_tx.receiver_count() > 0 {
-                let enriched = snapshot_cache.build_message(&state_clone, &ps).await;
+                let (enriched, track_changed) = snapshot_cache.build_message(&state_clone, &ps).await;
 
                 // 同步最近的全量帧（含歌词），供新连接补发。
                 if let Some(full) = snapshot_cache.last_full_message() {
@@ -33,6 +33,13 @@ pub fn start_engine_state_poller(state: Arc<AppState>) {
                         .write()
                         .unwrap_or_else(|e| e.into_inner());
                     *guard = Some(full);
+                }
+
+                // Stage 2：曲目切换事件先于 500ms 帧发出（前端据此刻做动效）。
+                if let Some(event) = track_changed {
+                    let _ = state_clone
+                        .ws_tx
+                        .send(serde_json::to_string(&event).unwrap_or_default());
                 }
 
                 let _ = state_clone
