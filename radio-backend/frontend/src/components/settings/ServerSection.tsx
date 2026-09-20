@@ -16,6 +16,8 @@ import {
   X,
 } from '@appica/icons-react'
 import { appRoot, getCustomServerUrl, setCustomServerUrl } from '@/api/client'
+import { fetchDiscoveredWorlds, scanLanWorlds } from '@/api'
+import type { DiscoveredWorld } from '@/types'
 import { useStore } from '@/store'
 
 interface TestResult {
@@ -33,8 +35,34 @@ export function ServerSection() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
 
+  const [lanWorlds, setLanWorlds] = useState<DiscoveredWorld[]>([])
+  const [scanning, setScanning] = useState(false)
+
+  const loadLanWorlds = async () => {
+    try {
+      const worlds = await fetchDiscoveredWorlds()
+      setLanWorlds(worlds)
+    } catch {
+      // ignore discovery load errors when offline
+    }
+  }
+
+  const handleScan = async () => {
+    setScanning(true)
+    try {
+      await scanLanWorlds()
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      await loadLanWorlds()
+    } catch {
+      // ignore
+    } finally {
+      setScanning(false)
+    }
+  }
+
   useEffect(() => {
     setCustomUrl(getCustomServerUrl())
+    void loadLanWorlds()
   }, [])
 
   const currentRoot = appRoot()
@@ -86,7 +114,11 @@ export function ServerSection() {
     } else {
       setCustomServerUrl(null)
     }
-    // 刷新页面以完全重新初始化 WebSocket、音频流与状态单例
+    window.location.reload()
+  }
+
+  const handleConnectTo = (url: string) => {
+    setCustomServerUrl(url)
     window.location.reload()
   }
 
@@ -135,9 +167,82 @@ export function ServerSection() {
         )}
       </div>
 
+      {/* World Browser / LAN Discovery */}
+      <div className="border-border-muted bg-background-muted/40 mb-6 rounded-lg border p-3.5 sm:p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-foreground-intense text-sm font-semibold">
+              局域网世界浏览器 (World Browser)
+            </h3>
+            <p className="text-foreground-muted text-xs">
+              基于 UDP 广播自动发现同局域网中的其它电台实例
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleScan}
+            disabled={scanning}
+          >
+            {scanning ? <Spinner className="size-4" currentColor /> : '扫描局域网'}
+          </Button>
+        </div>
+
+        {lanWorlds.length === 0 ? (
+          <div className="text-foreground-muted py-3 text-center text-xs">
+            暂未发现局域网其它电台。同网络内开启的 RakurakuMusicWorld 节点将自动列在此处。
+          </div>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {lanWorlds.map((world) => {
+              const isCurrent = world.world_id === currentStation?.world_id
+              return (
+                <div
+                  key={world.world_id}
+                  className="border-border-muted bg-background flex flex-col justify-between rounded-lg border p-3 text-xs"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-foreground-intense font-medium">
+                        {world.station_name}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {world.is_headless && (
+                          <Badge color="neutral">Headless</Badge>
+                        )}
+                        <Badge color="primary">v{world.version}</Badge>
+                      </div>
+                    </div>
+                    <div className="text-foreground-muted font-mono">
+                      {world.host}:{world.port}
+                    </div>
+                    <div className="text-foreground-muted truncate text-[11px]">
+                      ID: {world.world_id}
+                    </div>
+                  </div>
+                  <div className="mt-2.5 pt-2 border-t border-border-muted/50 flex items-center justify-end">
+                    {isCurrent ? (
+                      <Badge color="success">当前已连接</Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleConnectTo(world.url)}
+                      >
+                        连接到此世界
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       <form onSubmit={handleSave} className="space-y-4">
         <Field>
-          <FieldLabel htmlFor="server-url-input">目标服务器地址</FieldLabel>
+          <FieldLabel htmlFor="server-url-input">手动配置服务器地址</FieldLabel>
           <div className="mt-1 flex flex-col gap-2 sm:flex-row">
             <Input
               id="server-url-input"
@@ -160,7 +265,7 @@ export function ServerSection() {
             </Button>
           </div>
           <FieldDescription>
-            支持连接至远程 Dedicated Server 或局域网中的其它 RakurakuMusicWorld 实例。
+            支持连接至远程 Dedicated Server 或通过公网/反代访问的 RakurakuMusicWorld 实例。
           </FieldDescription>
         </Field>
 

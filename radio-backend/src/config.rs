@@ -13,6 +13,8 @@ pub struct AppConfig {
     pub logging: LoggingConfig,
     #[serde(default)]
     pub ncm: NcmConfig,
+    #[serde(default)]
+    pub discovery: DiscoveryConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -172,6 +174,39 @@ fn default_download_concurrency() -> usize {
     1
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct DiscoveryConfig {
+    /// 是否开启局域网 UDP 广播与发现服务
+    #[serde(default = "default_discovery_enabled")]
+    pub enabled: bool,
+    /// 发现监听与广播的 UDP 端口（默认 42241）
+    #[serde(default = "default_discovery_port")]
+    pub port: u16,
+    /// 发送信标广播的间隔秒数（默认 5 秒）
+    #[serde(default = "default_discovery_interval")]
+    pub interval_secs: u64,
+}
+
+impl Default for DiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_discovery_enabled(),
+            port: default_discovery_port(),
+            interval_secs: default_discovery_interval(),
+        }
+    }
+}
+
+fn default_discovery_enabled() -> bool {
+    true
+}
+fn default_discovery_port() -> u16 {
+    42241
+}
+fn default_discovery_interval() -> u64 {
+    5
+}
+
 // ─── 默认值 ─────────────────────────────────────────────
 
 fn default_host() -> String {
@@ -268,6 +303,13 @@ impl AppConfig {
             let v = v.trim();
             config.server.headless = v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes");
         }
+        if let Ok(v) = std::env::var("RADIO_DISCOVERY_ENABLED") {
+            let v = v.trim();
+            config.discovery.enabled = v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes");
+        }
+        if let Ok(v) = std::env::var("RADIO_DISCOVERY_PORT") {
+            config.discovery.port = v.parse().unwrap_or(config.discovery.port);
+        }
 
         config.server.base_path = normalize_base_path(&config.server.base_path);
 
@@ -349,6 +391,29 @@ mod tests {
         "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
         assert!(config.server.headless);
+    }
+
+    #[test]
+    fn discovery_config_defaults() {
+        let toml_str = r#"
+            [server]
+            [database]
+            url = "sqlite://:memory:"
+            [audio_engine]
+            media_path = "./media"
+            [device]
+            [queue]
+            [station]
+            name = "Test"
+            short_name = "T"
+            subtitle = ""
+            description = ""
+            [logging]
+        "#;
+        let config: AppConfig = toml::from_str(toml_str).unwrap();
+        assert!(config.discovery.enabled);
+        assert_eq!(config.discovery.port, 42241);
+        assert_eq!(config.discovery.interval_secs, 5);
     }
 }
 

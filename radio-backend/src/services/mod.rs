@@ -1,4 +1,5 @@
 pub mod cleanup;
+pub mod discovery;
 pub mod download_tasks;
 pub mod metadata;
 pub mod metadata_jobs;

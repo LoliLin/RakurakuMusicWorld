@@ -296,3 +296,19 @@ export interface ListenersUpdateWs {
 }
 
 export type WsMessage = PlaybackStateWs | QueueUpdateWs | NoticeWs | PingWs | ListenersUpdateWs
+
+// ── LAN Discovery ──────────────────────────────────────────
+
+export interface DiscoveredWorld {
+  world_id: string
+  station_name: string
+  short_name: string
+  host: string
+  port: number
+  base_path: string
+  url: string
+  version: string
+  is_headless: boolean
+  last_seen_ms: number
+}
+

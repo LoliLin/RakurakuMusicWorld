@@ -1,6 +1,7 @@
 pub mod admin;
 /// 电台后端 HTTP API 的路由模块。
 pub mod auth;
+pub mod discovery;
 pub mod favorites;
 pub mod ncm;
 pub mod playlist;
@@ -18,6 +19,7 @@ use tower_http::services::{ServeDir, ServeFile};
 pub fn build_router(state: Arc<AppState>) -> Router {
     let api_routes = Router::new()
         .nest("/auth", auth::auth_routes())
+        .nest("/discovery", discovery::discovery_routes())
         .nest("/songs", songs::song_routes())
         .nest("/playlists", playlist::playlist_routes())
         .nest("/queue", queue::queue_routes())

@@ -26,6 +26,7 @@ import type {
   MetadataJob,
   MetadataJobItem,
   MetadataCandidate,
+  DiscoveredWorld,
 } from '@/types'
 
 // ── station / misc ─────────────────────────────────────────
@@ -262,4 +263,15 @@ export function startNcmImport(batch_id: string): Promise<BatchDownloadResponse>
   return apiFetch<BatchDownloadResponse>('/api/admin/ncm/import', { method: 'POST', body: JSON.stringify({ batch_id }) })
 }
 
+// ── LAN Discovery ──────────────────────────────────────────
+
+export function fetchDiscoveredWorlds(): Promise<DiscoveredWorld[]> {
+  return apiFetch<DiscoveredWorld[]>('/api/discovery/worlds')
+}
+
+export function scanLanWorlds(): Promise<void> {
+  return apiFetch('/api/discovery/scan', { method: 'POST' })
+}
+
 export { apiFetch, apiBlob, appUrl, consumeSse } from './client'
+

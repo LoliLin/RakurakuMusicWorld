@@ -103,9 +103,26 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 
 **验收**：`rakuraku-music-world-server` 在无桌面 Linux/无静态资源目录下跑通；Web/Electron 客户端连 Dedicated 与连本机行为一致。
 
-## Stage 6 — LAN（最后做）
+## Stage 6 — LAN（LAN Discovery 与 World Browser）
 
-蓝图 §14 的 World Browser / LAN Discovery 依赖 mDNS/UDP 广播——**协议与发现解耦**，本阶段只做发现层，World Protocol 不变。
+**做什么**：
+1. 蓝图 §14 的 World Browser / LAN Discovery 依赖 UDP 广播——**协议与发现解耦**，发现层纯粹作为外围服务，World Protocol 保持独立不变。
+2. 后端提供纯异步 UDP 广播发现层（`services/discovery.rs`），支持 Beacon（定时心跳广播与对端心跳接收缓存，带 30s TTL 自动清理）与 Probe（即时主动探测广播）。
+3. 暴露 REST 接口：`GET /api/discovery/worlds`（查看局域网内已发现的世界）与 `POST /api/discovery/scan`（触发主动广播探测）。
+4. 客户端设置页集成 World Browser（`ServerSection.tsx`），自动感知局域网世界、显示活跃状态、Headless 标识，支持一键切换连接。
+
+**已落地的进展**：
+1. `config.rs`：新增 `DiscoveryConfig`（`enabled` 默认 true, `port` 默认 42241, `interval_secs` 默认 5），支持 `RADIO_DISCOVERY_ENABLED` 与 `RADIO_DISCOVERY_PORT` 环境变量。
+2. `services/discovery.rs`：使用 `tokio::net::UdpSocket` 实现纯异步 UDP 广播服务，定义 `DiscoveryPacket::Beacon` 与 `DiscoveryPacket::Probe`，避免引入外部原生 mDNS/Bonjour 依赖，跨平台编译零门槛。
+3. `routes/discovery.rs`：提供 `GET /api/discovery/worlds` 与 `POST /api/discovery/scan` 路由。
+4. `routes/mod.rs` & `app/state.rs`：挂载 discovery 路由并在应用启动时按配置初始化并启动后台广播与监听任务。
+5. 前端集成：`types.ts` 与 `api/index.ts` 接入发现端点，`ServerSection.tsx` 提供局域网世界浏览卡片、状态指示、即时扫描与一键切换。
+
+**Stage 6 已全面完成**。
+
+**验收**：
+- 单元测试全绿（数据包序列化与反序列化双向无损、配置加载）。
+- 局域网 UDP 广播与 HTTP 发现接口工作正常，World Browser 可感知本地与局域网节点。
 
 ---
 
@@ -126,7 +143,13 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 ## 当前位置
 
 ```
-[██████████████████████] Stage 5 全部完成：Dedicated Server (无 GUI Headless 模式) + 客户端远程 World 连接与跨域认证
-下一步：Stage 6（LAN Discovery 与 World Browser）
-已完成前置：Rebrand、Electron 壳、依赖升级、协议文档与 Stage 1/2 兼容扩展、WorldRuntime 接缝、playlist 规则/存储分层、双队列归一、PlaybackState 权威上移、Physical 4 大 trait + Integrated 实现 + world_id、Dedicated Server + Remote World
+[██████████████████████] 全部 6 个阶段（Stage 1 ~ Stage 6）已 100% 达成！
+已落地能力：
+- Stage 1: World State 统一模型与 Command 映射
+- Stage 2: 向后兼容的 WS 扩展与完整快照同步
+- Stage 3: Logical Side 抽取（WorldRuntime 接缝、playlist 规则/存储分层、双队列归一、PlaybackState 权威上移）
+- Stage 4: Physical Side 4 大 trait 抽象 + IntegratedPhysicalSide 实现 + world_id 持久化
+- Stage 5: Dedicated Server (无 GUI Headless 模式) + 客户端远程连接与跨域/移动端身份认证
+- Stage 6: 纯异步 UDP 局域网广播发现层 + World Browser (局域网世界发现与一键连接切换)
 ```
+

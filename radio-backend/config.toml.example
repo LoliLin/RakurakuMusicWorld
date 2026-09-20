@@ -61,3 +61,12 @@ level = "info"
 device_id = ""
 # 批量下载并发数（1 = 串行，最大 8）
 download_concurrency = 1
+
+[discovery]
+# 是否启用局域网发现广播（UDP 广播与扫描）
+enabled = true
+# 广播端口（默认 42241，同一局域网下的节点需使用相同端口）
+port = 42241
+# 定时广播心跳间隔（秒）
+interval_secs = 5
+

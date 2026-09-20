@@ -43,6 +43,8 @@ pub struct AppState {
     pub current_playback: Arc<tokio::sync::RwLock<Option<crate::models::NowPlaying>>>,
     /// Persistent World ID uniquely identifying this station instance across restarts.
     pub world_id: String,
+    /// LAN discovery service (None if disabled or failed to bind).
+    pub discovery: Option<Arc<crate::services::discovery::DiscoveryService>>,
 }
 
 impl AppState {
@@ -66,6 +68,31 @@ impl AppState {
         .await;
         let world_id = crate::db::get_or_create_world_id(&db).await?;
 
+        let discovery = if config.discovery.enabled {
+            let station_name = Arc::new(tokio::sync::RwLock::new(config.station.name.clone()));
+            let short_name = Arc::new(tokio::sync::RwLock::new(config.station.short_name.clone()));
+            match crate::services::discovery::DiscoveryService::start(
+                world_id.clone(),
+                station_name,
+                short_name,
+                config.server.port,
+                config.server.base_path.clone(),
+                config.server.headless,
+                config.discovery.port,
+                std::time::Duration::from_secs(config.discovery.interval_secs),
+            )
+            .await
+            {
+                Ok(svc) => Some(svc),
+                Err(e) => {
+                    tracing::warn!("Failed to start LAN discovery service: {:?}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         Ok(Self {
             db,
             config,
@@ -81,6 +108,7 @@ impl AppState {
             metadata_jobs,
             current_playback: Arc::new(tokio::sync::RwLock::new(None)),
             world_id,
+            discovery,
         })
     }
 }

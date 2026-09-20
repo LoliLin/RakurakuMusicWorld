@@ -45,9 +45,9 @@ flowchart LR
 
 | 组件 | 位置 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| UI | `frontend/src/pages/`、`components/` | [Existing] | 播放器 / 曲库 / 设置 三页（`router.tsx`），管理面板内嵌在 Settings；设置页包含 `ServerSection` 供连接远程 World |
+| UI | `frontend/src/pages/`、`components/` | [Existing] | 播放器 / 曲库 / 设置 三页（`router.tsx`），管理面板内嵌在 Settings；设置页包含 `ServerSection` 供连接远程 World 与 World Browser 局域网浏览 |
 | Client State | `frontend/src/store.ts` (zustand) | [Needs Refactor] | 单 store 混合了服务器状态镜像（playback/queue/listeners）、本地 UI 状态（volume/accent/toast）、本地持久化（favorites 走 localStorage，`store.ts:toggleFavorite`） |
-| Network | `api/client.ts`、`api/index.ts`、`api/ws.ts` | [Existing] | REST 包装解包 + WS 分发；`appRoot`/`wsUrl` 动态支持配置远程 World；`credentials: 'include'` 与 `x-device-token` 保证跨域身份识别 |
+| Network | `api/client.ts`、`api/index.ts`、`api/ws.ts` | [Existing] | REST 包装解包 + WS 分发；`appRoot`/`wsUrl` 动态支持配置远程 World；`credentials: 'include'` 与 `x-device-token` 保证跨域身份识别；提供 `discovery` REST API 查询局域网世界 |
 | Audio 输出 | `audio/streamAudio.ts` | [Existing] | 单例 `<audio>` → `/stream`；动态基于 `appRoot()` 支持远程流；切歌重连（`?r=` nonce）、指数退避、停滞看门狗 |
 | 位置平滑 | `hooks/usePlaybackClock.ts` | [Existing] | 用 `position_ms + (Date.now() - timestamp_ms)` 客户端外推；**这是 World Clock 思路的雏形，但时间基准是墙钟而非服务器时钟** |
 | 桌面壳 | `electron/main.mjs` | [Existing] | 窗口 1440×900（双栏 xl 断点需要 ≥1280 CSS px）、外部链接走系统浏览器 |
@@ -57,15 +57,16 @@ flowchart LR
 
 | 组件 | 位置 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| 路由/HTTP 适配 | `routes/` | [Existing] | 纯适配层：解析请求 → 调 service → JSON 响应。无业务逻辑内嵌；支持 headless 模式（免除 `static/` 依赖，根路径暴露服务信息） |
+| 路由/HTTP 适配 | `routes/` | [Existing] | 纯适配层：解析请求 → 调 service → JSON 响应。无业务逻辑内嵌；支持 headless 模式（免除 `static/` 依赖，根路径暴露服务信息）；暴露 `/api/discovery/*` 端点 |
 | Logical Side 入口 | `world.rs:WorldRuntime` | [Partial] | routes 只通过 World command/query 访问播放与队列；运行时暂复用旧 queue service 和 engine |
 | 播放状态权威 | `world.rs` + `services/playback_broadcast.rs` | [Existing] | PlaybackState 权威提升至 Logical 层（`AppState.current_playback` + `WorldRuntime::now_playing`），engine 仅上报物理进度 |
 | 队列权威 | `services/queue/` + `queue_items` 表 | [Partial] | DB 是 pending 队列唯一权威；engine request_queue 已降级为执行细节；`queue_sync` 互斥锁与同步语义完全收进 Logical 层 |
 | 听众注册 | `app/state.rs:listeners` (DashMap) | [Existing] | 内存态，WS 连接注册 / 断开移除，不持久化 |
+| 局域网发现 | `services/discovery.rs` + `tokio::net::UdpSocket` | [Existing] | 纯异步 UDP 广播发现层，Beacon 心跳广播/接收 + Probe 主动探测 + 30s TTL 自动清理 |
 | WS 广播 | `services/playback_broadcast.rs` + `websocket.rs` | [Existing] | 500ms 轮询 engine → enrich → broadcast；心跳 ping/pong（30s/60s 超时，`websocket.rs:handle_socket`） |
 | 歌词快照缓存 | `services/playback_snapshot.rs` | [Existing] | 切歌时解析 .lrc（GBK/UTF-16 容错），全量帧缓存于 `AppState.ws_full_snapshot` 供新连接补发 |
-| 持久化 | `db.rs` + `migrations/001..009` | [Existing] | users/songs/playlists/queue_items/play_history/admin_log/favorites/user_requests/ncm_import_tasks/metadata_jobs |
-| 配置 | `config.rs` + `config.toml` | [Existing] | `POST /api/admin/settings` 原子写回 config.toml（`routes/admin/settings.rs:write_config_atomically`），**不热加载** |
+| 持久化 | `db.rs` + `migrations/001..010` | [Existing] | users/songs/playlists/queue_items/play_history/admin_log/favorites/user_requests/ncm_import_tasks/metadata_jobs/world_meta |
+| 配置 | `config.rs` + `config.toml` | [Existing] | `POST /api/admin/settings` 原子写回 config.toml（`routes/admin/settings.rs:write_config_atomically`），**不热加载**；支持 `[discovery]` 节 |
 
 ### 2.3 音频引擎（radio-engine）
 
@@ -106,6 +107,7 @@ Admin UI → POST /api/admin/playlist/next (routes/admin/playback.rs)
 | `models/ws.rs:WsMessage` | Protocol 层 | [Needs Refactor] 内嵌 URL/歌词等富数据，UI 直接消费服务器格式 |
 | `http/stream.rs` + `ring_buffer.rs` | Physical Side 的音频传输细节 | [Existing] 应整体留在 Physical Side |
 | `physical/mod.rs` | Physical Side trait 边界 + Integrated 实现 | [Existing] 四大 trait（Storage/Transport/PlayerRegistry/Lifecycle）+ `IntegratedPhysicalSide` 委托给 AppState |
+| `services/discovery.rs` + `routes/discovery.rs` | LAN Discovery 与 World Browser 支撑 | [Existing] 纯异步 UDP 广播发现层，与 World Protocol 解耦，为 World Browser 提供局域网世界列表与即时扫描 |
 | `config.rs` + `config.toml` + `world_meta` 表 | World metadata/persistence | [Existing] `world_id` (UUIDv4) 持久化于 `world_meta` 表，首次启动生成，跨重启稳定；station.name 保留为显示名 |
 | `websocket.rs:handle_socket` ping/pong + `usePlaybackClock` | World Clock | [Partial] 有 timestamp 同步雏形，无 offset/延迟估计 |
 
