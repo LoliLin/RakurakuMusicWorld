@@ -57,6 +57,7 @@ pub async fn station_info(
         ),
         "ws_url": ws_url,
         "needs_setup": !has_admin,
+        "world_id": state.world_id,
     }))
 }
 

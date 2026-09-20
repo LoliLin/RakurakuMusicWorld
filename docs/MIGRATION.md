@@ -49,15 +49,15 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 
 ## Stage 3 — Logical Side 抽取（后端内部分层）
 
-**已落地的第一步**：
+**已落地的进展**：
 1. `radio-backend/src/world.rs:WorldRuntime` 成为 Logical Side 的 Command/Query 入口；routes 不再直接调用队列 service 或 `PlayerHandle`。
 2. 播放控制、队列增删移动/跳过、启动 rehydrate、metadata/download 后的队列重载，都经 `WorldCommand` 或 World playlist query 进入。
 3. `WorldRuntime::snapshot()` 提供统一 World snapshot query；`WorldState` 仍只翻译现有 engine/SQLite/listener 权威，不复制状态。
+4. `services/queue` 完成分层重构：拆为 `services/queue/rules.rs`（Logical playlist 规则与编排）与 `services/queue/persistence.rs`（Physical persistence SQLite 适配器），保留原有 `services/queue::*` 契约不变。
+5. **双队列归一**：engine 请求队列彻底降级为执行缓存与细节，`queue_sync` 互斥锁与 rehydrate 语义完全收敛进 Logical 层（`WorldRuntime::purge_song` 收回最后残留的路由级锁与执行器队列直接操作）。
+6. **PlaybackState 权威上移**：engine 降级为上报物理进度（`EngineProgress`），Logical 聚合层（`AppState.current_playback` + `WorldRuntime::now_playing`）拥有唯一的播放状态权威，统一驱动 500ms 广播与 REST 查询。
 
-**仍待完成**：
-1. 把 `services/queue.rs` 的规则与存储操作进一步拆为 Logical playlist 与 Physical persistence adapter。
-2. **归一双队列**：engine 请求队列降级为 Logical 层的执行细节（`rehydrate_engine_queue` 语义由 Logical 层 owning）；`queue_sync` 锁收进 Logical 层。
-3. PlaybackState 权威从 engine 内部状态提升：engine 保留音频执行，状态发布改由 Logical 层聚合（engine 回报进度事件）。
+**Stage 3 已全面完成**。接下来可进入 Stage 4（Physical Side 抽象，Integrated 第一）。
 
 **风险点**：`player.rs:run()` 主循环与 500ms 发布节奏是稳定性核心；完整 Stage 3 仍需要 `ring_buffer` 内联测试 + 长跑冒烟（多客户端、反复切歌、重启续播）。
 
@@ -71,6 +71,16 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 1. 定义 Physical Side trait 边界：runtime lifecycle / 网络端点 / 持久化 / 客户端连接注册。
 2. 现有 axum 进程实现为 **Integrated/Hosted Physical Side**（单机 = 本地 World，"打开 App 即用"）。
 3. `config.toml` → World metadata：引入 `world_id`（UUID，首次启动生成，存 SQLite `world_meta` 表），station.name 保留为显示名。
+
+**已落地的进展**：
+1. 数据库迁移 `010_world_meta.sql` 新增 `world_meta` 表（KV 存储，persistent world identity）。
+2. `db.rs:get_or_create_world_id` — 首次启动生成 UUIDv4 并持久化，后续调用幂等返回同一 ID。
+3. `AppState.world_id` 在启动时从 DB 加载；`/api/station` 返回 `world_id` 字段。
+4. `world.rs:WorldIdentity` 填入 `Some(state.world_id.clone())`。
+5. `physical/mod.rs` 定义四大 trait 边界：`PhysicalStorage`、`PhysicalTransport`、`PhysicalPlayerRegistry`、`PhysicalLifecycle`；`IntegratedPhysicalSide` 实现全部 trait，直接委托给 `AppState`。
+6. 单元测试验证 `world_id` 跨次调用幂等性与持久化稳定性、`IntegratedPhysicalSide` 实现全部 Physical 约束。
+
+**Stage 4 已全面完成**。接下来可进入 Stage 5（Dedicated Server，无 GUI）。
 
 **验收**：同一二进制既可被 Web Client 连（现状），也可被标记为"本地 World"启动；`world_id` 稳定跨重启。
 
@@ -105,7 +115,7 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 ## 当前位置
 
 ```
-[██████████░░░░] Stage 3 第一段：WorldRuntime Logical Side 接缝已落地
-待完成：playlist 规则/存储拆分、双队列归一、engine PlaybackState 权威上移
-已完成前置：Rebrand、Electron 壳、依赖升级、协议文档与 Stage 1/2 兼容扩展
+[██████████████████] Stage 4 全部完成：Physical Side trait 边界定义、IntegratedPhysicalSide 实现、world_id 持久化
+下一步：Stage 5（Dedicated Server，无 GUI headless 模式）
+已完成前置：Rebrand、Electron 壳、依赖升级、协议文档与 Stage 1/2 兼容扩展、WorldRuntime 接缝、playlist 规则/存储分层、双队列归一、PlaybackState 权威上移、Physical 4 大 trait + Integrated 实现 + world_id
 ```

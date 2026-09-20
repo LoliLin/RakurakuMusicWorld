@@ -35,3 +35,48 @@ pub(crate) async fn init_database(config: &DatabaseConfig) -> anyhow::Result<Sql
 
     Ok(pool)
 }
+
+/// 获取当前 World 的唯一稳定 ID；若不存在则生成 UUIDv4 并持久化到 world_meta 表中。
+pub async fn get_or_create_world_id(db: &SqlitePool) -> Result<String, crate::error::AppError> {
+    let existing: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM world_meta WHERE key = 'world_id'",
+    )
+    .fetch_optional(db)
+    .await?;
+
+    if let Some((world_id,)) = existing {
+        return Ok(world_id);
+    }
+
+    let new_id = uuid::Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO world_meta (key, value) VALUES ('world_id', ?)",
+    )
+    .bind(&new_id)
+    .execute(db)
+    .await?;
+
+    tracing::info!("Initialized new persistent World ID: {}", new_id);
+    Ok(new_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_world_id_persistence_and_idempotency() -> anyhow::Result<()> {
+        let pool = SqlitePool::connect("sqlite::memory:").await?;
+        sqlx::migrate!("./migrations").run(&pool).await?;
+
+        let id1 = get_or_create_world_id(&pool).await?;
+        assert!(!id1.is_empty());
+        assert!(uuid::Uuid::parse_str(&id1).is_ok());
+
+        let id2 = get_or_create_world_id(&pool).await?;
+        assert_eq!(id1, id2, "world_id must be idempotent and persistent");
+
+        Ok(())
+    }
+}
+

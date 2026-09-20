@@ -888,9 +888,14 @@ impl PlayerHandle {
         let _ = self.cmd_tx.send(cmd);
     }
 
-    /// Get current playback state (snapshot).
-    pub fn get_state(&self) -> PlaybackState {
+    /// Get the current physical playback progress reported by the audio executor.
+    pub fn get_progress(&self) -> crate::types::EngineProgress {
         self.state.lock().unwrap().clone()
+    }
+
+    /// Get current playback state (snapshot) — backwards compatible alias.
+    pub fn get_state(&self) -> PlaybackState {
+        self.get_progress()
     }
 
     /// Request stop.

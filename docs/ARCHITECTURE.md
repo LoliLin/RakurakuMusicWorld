@@ -1,7 +1,7 @@
 # ARCHITECTURE — RakurakuMusicWorld
 
 > 本文记录**当前真实架构**，全部结论来自实际代码（file:symbol 标注）。
-> 目标架构（Logical Side / Physical Side 分离）仍未完成，但 `radio-backend/src/world.rs:WorldRuntime` 已作为 Logical Side 的后端内部分层入口；Physical Side 仍由当前 Integrated 进程提供。
+> 目标架构（Logical Side / Physical Side 分离）：`radio-backend/src/world.rs:WorldRuntime` 是 Logical Side 入口；`radio-backend/src/physical/mod.rs` 定义了四大 Physical Side trait（`PhysicalStorage` / `PhysicalTransport` / `PhysicalPlayerRegistry` / `PhysicalLifecycle`），`IntegratedPhysicalSide` 实现全部 trait 并委托给 `AppState`。`world_id`（UUIDv4）持久化于 `world_meta` 表。
 >
 > 状态标记：**[Existing]** 已存在｜**[Partial]** 部分存在，有缺口｜**[Missing]** 不存在｜**[Needs Refactor]** 存在但结构阻碍目标架构
 
@@ -59,8 +59,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | 路由/HTTP 适配 | `routes/` | [Existing] | 纯适配层：解析请求 → 调 service → JSON 响应。无业务逻辑内嵌（除 `station.rs` 的 URL 组装） |
 | Logical Side 入口 | `world.rs:WorldRuntime` | [Partial] | routes 只通过 World command/query 访问播放与队列；运行时暂复用旧 queue service 和 engine |
-| 播放状态权威 | `radio-engine/src/player.rs` | [Needs Refactor] | `PlaybackState` 由 engine 每 500ms 发布（`player.rs:publish_state`）；**这是事实上的 PlaybackState 权威，但被埋在音频引擎里** |
-| 队列权威 | `services/queue.rs` + `queue_items` 表 | [Needs Refactor] | DB 是 pending 队列的权威；engine 内部还有第二个"请求队列"（`Player::enqueue_request`），两套队列靠 `queue_sync` 互斥锁 + `rehydrate_engine_queue` 手工同步 |
+| 播放状态权威 | `world.rs` + `services/playback_broadcast.rs` | [Existing] | PlaybackState 权威提升至 Logical 层（`AppState.current_playback` + `WorldRuntime::now_playing`），engine 仅上报物理进度 |
+| 队列权威 | `services/queue/` + `queue_items` 表 | [Partial] | DB 是 pending 队列唯一权威；engine request_queue 已降级为执行细节；`queue_sync` 互斥锁与同步语义完全收进 Logical 层 |
 | 听众注册 | `app/state.rs:listeners` (DashMap) | [Existing] | 内存态，WS 连接注册 / 断开移除，不持久化 |
 | WS 广播 | `services/playback_broadcast.rs` + `websocket.rs` | [Existing] | 500ms 轮询 engine → enrich → broadcast；心跳 ping/pong（30s/60s 超时，`websocket.rs:handle_socket`） |
 | 歌词快照缓存 | `services/playback_snapshot.rs` | [Existing] | 切歌时解析 .lrc（GBK/UTF-16 容错），全量帧缓存于 `AppState.ws_full_snapshot` 供新连接补发 |
@@ -93,19 +93,20 @@ Admin UI → POST /api/admin/playlist/next (routes/admin/playback.rs)
 队列 REST 也先进入 `WorldRuntime`，再调用现有 `services/queue.rs` 的持久化/执行适配；
 这保留行为不变，同时给后续替换 Logical playlist 实现留下单一入口。
 
-结论：Command 与 State/Event 已有稳定的迁移接缝；Physical Side 尚未抽成独立 trait。
+结论：Command 与 State/Event 已有稳定的迁移接缝；Physical Side trait 边界（`physical/mod.rs`）已定义并由 `IntegratedPhysicalSide` 实现。
 
 ## 4. 映射到目标架构：抽取候选
 
 | 现有模块 | 目标角色 | 判定 |
 | --- | --- | --- |
 | `world.rs:WorldRuntime` | Logical Side 的 Command/Query 入口 | [Partial] | 负责 World command 翻译、队列操作入口与快照查询；底层暂复用现有实现 |
-| `services/queue.rs` + `queue_items` 表 | Logical playlist 规则 + Physical persistence adapter | [Needs Refactor] 入口已收敛到 `WorldRuntime`，双队列仍待归一 |
-| `services/playback_broadcast.rs` + `playback_snapshot.rs` | Event 派发 + Snapshot 生成 | [Partial] | 播放状态仍由 engine 报告，WorldRuntime 已提供查询/回写接缝 |
+| `services/queue/` (`rules` + `persistence`) | Logical playlist 规则 + Physical persistence adapter | [Existing] 规则/存储分层与双队列归一已落地，锁与执行器同步完全收进 Logical 层 |
+| `services/playback_broadcast.rs` + `playback_snapshot.rs` | Logical 播放聚合 + Event 派发 + Snapshot 生成 | [Existing] | Logical 层聚合权威状态，驱动 500ms 广播并维系全量歌词快照 |
 | `auth.rs`（device identity）+ `state.rs:listeners` | World 的 Player（身份/在线） | [Existing] 概念已存在，缺 worldId 维度 |
 | `models/ws.rs:WsMessage` | Protocol 层 | [Needs Refactor] 内嵌 URL/歌词等富数据，UI 直接消费服务器格式 |
 | `http/stream.rs` + `ring_buffer.rs` | Physical Side 的音频传输细节 | [Existing] 应整体留在 Physical Side |
-| `config.rs` + `config.toml` | World metadata/persistence 的雏形 | [Partial] 单机配置，无 world identity |
+| `physical/mod.rs` | Physical Side trait 边界 + Integrated 实现 | [Existing] 四大 trait（Storage/Transport/PlayerRegistry/Lifecycle）+ `IntegratedPhysicalSide` 委托给 AppState |
+| `config.rs` + `config.toml` + `world_meta` 表 | World metadata/persistence | [Existing] `world_id` (UUIDv4) 持久化于 `world_meta` 表，首次启动生成，跨重启稳定；station.name 保留为显示名 |
 | `websocket.rs:handle_socket` ping/pong + `usePlaybackClock` | World Clock | [Partial] 有 timestamp 同步雏形，无 offset/延迟估计 |
 
 ## 5. 明确的边界（不要动的部分）

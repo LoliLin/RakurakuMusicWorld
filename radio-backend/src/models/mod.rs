@@ -240,7 +240,7 @@ pub struct ClaimAdminRequest {
     pub admin_setup_token: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NowPlaying {
     pub song: Option<SongSummary>,
     pub position_ms: i64,

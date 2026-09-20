@@ -12,6 +12,7 @@ mod error;
 mod http;
 mod lyrics;
 mod models;
+mod physical;
 mod routes;
 mod services;
 mod websocket;

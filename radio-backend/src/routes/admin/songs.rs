@@ -93,27 +93,7 @@ pub async fn delete_song(
         }
     }
 
-    {
-        let _queue_guard = state.queue_sync.lock().await;
-
-        sqlx::query("DELETE FROM playlist_songs WHERE song_id = ?")
-            .bind(id)
-            .execute(&state.db)
-            .await?;
-        sqlx::query("DELETE FROM queue_items WHERE song_id = ?")
-            .bind(id)
-            .execute(&state.db)
-            .await?;
-        state.player_handle.remove_request_by_song_id(id);
-        sqlx::query("DELETE FROM favorites WHERE song_id = ?")
-            .bind(id)
-            .execute(&state.db)
-            .await?;
-        sqlx::query("DELETE FROM songs WHERE id = ?")
-            .bind(id)
-            .execute(&state.db)
-            .await?;
-    }
+    WorldRuntime::new(state.clone()).purge_song(id).await?;
 
     sqlx::query("INSERT INTO admin_log (admin_id, action, details) VALUES (?, 'delete_song', ?)")
         .bind(admin.id)

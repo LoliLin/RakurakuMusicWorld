@@ -66,6 +66,9 @@ impl Default for PlaybackStatus {
     }
 }
 
+/// Physical playback progress reported by the audio engine executor.
+pub type EngineProgress = PlaybackState;
+
 /// Playback state (published every 500ms).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaybackState {

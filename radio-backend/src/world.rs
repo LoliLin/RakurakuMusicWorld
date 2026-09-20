@@ -13,15 +13,15 @@ use std::sync::Arc;
 use crate::app::state::AppState;
 use crate::models::WsMessage;
 
-/// World 身份。第一阶段由 SQLite `world_meta` 表持久化 world_id（Stage 4 启用），
-/// 当前从 config 派生显示身份。
+/// World 身份。由 SQLite `world_meta` 表持久化 world_id（Stage 4 落地），
+/// 显示身份从 config 派生。
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct WorldIdentity {
     /// 显示名（config `[station] name`）。
     pub name: String,
     /// 短名（config `[station] short_name`）。
     pub short_name: String,
-    /// 稳定 ID。Stage 1 尚未持久化，返回 `None`；Stage 4 接入 `world_meta` 表。
+    /// 稳定 ID。由 SQLite `world_meta` 表持久化，跨重启稳定。
     pub world_id: Option<String>,
 }
 
@@ -30,7 +30,7 @@ impl WorldIdentity {
         Self {
             name: state.config.station.name.clone(),
             short_name: state.config.station.short_name.clone(),
-            world_id: None,
+            world_id: Some(state.world_id.clone()),
         }
     }
 }
@@ -51,7 +51,28 @@ pub struct WorldPlayback {
 }
 
 impl WorldPlayback {
-    /// 从引擎权威状态翻译。`song_id`：folder-cycle 曲目在 WS 帧里是 -1。
+    /// 从 Logical 权威快照翻译。
+    pub fn from_now_playing(np: &crate::models::NowPlaying) -> Self {
+        let (song_id, title, artist) = match &np.song {
+            Some(s) => (s.id, s.title.clone(), s.artist.clone()),
+            None => (-1, String::new(), String::new()),
+        };
+        let status = if np.duration_ms > 0 && np.position_ms >= 0 {
+            crate::models::PlaybackStatus::Playing
+        } else {
+            crate::models::PlaybackStatus::Stopped
+        };
+        Self {
+            song_id,
+            title,
+            artist,
+            position_ms: np.position_ms,
+            duration_ms: np.duration_ms,
+            status,
+        }
+    }
+
+    /// 从引擎物理进度翻译（fallback 兼容）。`song_id`：folder-cycle 曲目在 WS 帧里是 -1。
     pub fn from_engine(ps: &radio_engine::types::PlaybackState) -> Self {
         Self {
             song_id: ps.song_id.unwrap_or(-1),
@@ -95,8 +116,15 @@ pub struct WorldState {
 impl WorldState {
     /// 从各权威来源聚合一次快照。
     pub async fn snapshot(state: &Arc<AppState>) -> Self {
-        let ps = state.player_handle.get_state();
-        let playback = WorldPlayback::from_engine(&ps);
+        let playback = {
+            let guard = state.current_playback.read().await;
+            if let Some(np) = guard.as_ref() {
+                WorldPlayback::from_now_playing(np)
+            } else {
+                let ps = state.player_handle.get_state();
+                WorldPlayback::from_engine(&ps)
+            }
+        };
 
         let playlist = WorldPlaylist {
             size: crate::services::queue::queue_size(&state.db)
@@ -228,6 +256,49 @@ impl WorldRuntime {
     /// 将当前播放曲目的状态回写到 World playlist。
     pub async fn mark_track_playing(&self, song_id: i64) -> Result<(), crate::error::AppError> {
         crate::services::queue::mark_playing(&self.state.db, song_id).await
+    }
+
+    /// 从系统与队列中彻底清除歌曲，并同步更新底层音频执行队列。
+    pub async fn purge_song(&self, song_id: i64) -> Result<(), crate::error::AppError> {
+        crate::services::queue::purge_song(&self.state, song_id).await
+    }
+
+    /// 查询当前 Logical 权威播放状态。
+    pub async fn now_playing(
+        &self,
+        headers: Option<&axum::http::HeaderMap>,
+    ) -> crate::models::NowPlaying {
+        let snapshot = {
+            let guard = self.state.current_playback.read().await;
+            guard.clone()
+        };
+
+        if let Some(mut np) = snapshot {
+            np.stream_url = self.state.config.audio_engine.resolve_stream_url(
+                headers,
+                self.state.config.server.port,
+                &self.state.config.server.base_path,
+            );
+            np
+        } else {
+            let progress = self.state.player_handle.get_progress();
+            let stream_url = self.state.config.audio_engine.resolve_stream_url(
+                headers,
+                self.state.config.server.port,
+                &self.state.config.server.base_path,
+            );
+            crate::models::NowPlaying {
+                song: None,
+                position_ms: progress.position_ms,
+                duration_ms: progress.duration_ms,
+                lyrics_line: None,
+                lyrics_text: None,
+                started_at: None,
+                stream_url,
+                file_url: None,
+                cover_url: None,
+            }
+        }
     }
 }
 

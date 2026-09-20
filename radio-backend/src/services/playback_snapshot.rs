@@ -9,6 +9,10 @@ struct CachedSong {
     db_song_id: i64,
     title: String,
     artist: String,
+    album: String,
+    cover_path: String,
+    lyrics_path: String,
+    raw_lyrics_text: Option<String>,
     lyrics_lines: Option<Vec<LyricsLineDto>>,
     metadata_revision: i64,
 }
@@ -40,12 +44,12 @@ impl PlaybackSnapshotCache {
     }
 
     /// 构建 500ms 播放帧。曲目切换时额外返回 TrackChanged 事件
-    /// （Stage 2：只增事件，playback_state 契约不变）。
+    /// （Stage 2：只增事件，playback_state 契约不变），同时产出 Logical 权威 NowPlaying。
     pub(crate) async fn build_message(
         &mut self,
         state: &Arc<AppState>,
         ps: &radio_engine::types::PlaybackState,
-    ) -> (WsMessage, Option<WsMessage>) {
+    ) -> (WsMessage, Option<WsMessage>, crate::models::NowPlaying) {
         self.refresh_on_song_change(state, ps).await;
 
         // 优先用 DB songs 里的 title/artist；查不到时回退到引擎自带的
@@ -80,6 +84,40 @@ impl PlaybackSnapshotCache {
         } else {
             None
         };
+
+        let file_url = if song_id > 0 {
+            Some(
+                state
+                    .config
+                    .audio_engine
+                    .resolve_file_url(song_id, &state.config.server.base_path),
+            )
+        } else {
+            None
+        };
+
+        let cover_url = if song_id > 0 {
+            Some(format!(
+                "{}?v={}",
+                state
+                    .config
+                    .audio_engine
+                    .resolve_cover_url(song_id, &state.config.server.base_path),
+                self.cached
+                    .as_ref()
+                    .map(|song| song.metadata_revision)
+                    .unwrap_or(0)
+            ))
+        } else {
+            None
+        };
+
+        let stream_url = state.config.audio_engine.resolve_stream_url(
+            None,
+            state.config.server.port,
+            &state.config.server.base_path,
+        );
+
         let full = WsMessage::PlaybackState {
             song_id,
             title: title.clone(),
@@ -89,36 +127,9 @@ impl PlaybackSnapshotCache {
             lyrics_line,
             lyrics_lines: lyrics_lines_payload,
             status: ps.status.clone(),
-            stream_url: state.config.audio_engine.resolve_stream_url(
-                None,
-                state.config.server.port,
-                &state.config.server.base_path,
-            ),
-            file_url: if song_id > 0 {
-                Some(
-                    state
-                        .config
-                        .audio_engine
-                        .resolve_file_url(song_id, &state.config.server.base_path),
-                )
-            } else {
-                None
-            },
-            cover_url: if song_id > 0 {
-                Some(format!(
-                    "{}?v={}",
-                    state
-                        .config
-                        .audio_engine
-                        .resolve_cover_url(song_id, &state.config.server.base_path),
-                    self.cached
-                        .as_ref()
-                        .map(|song| song.metadata_revision)
-                        .unwrap_or(0)
-                ))
-            } else {
-                None
-            },
+            stream_url: stream_url.clone(),
+            file_url: file_url.clone(),
+            cover_url: cover_url.clone(),
             timestamp_ms: chrono::Utc::now().timestamp_millis(),
         };
 
@@ -137,7 +148,47 @@ impl PlaybackSnapshotCache {
             self.last_full_message = Some(serde_json::to_string(&full).unwrap_or_default());
         }
 
-        (full, track_changed)
+        let song_summary = if song_id > 0 {
+            Some(crate::models::SongSummary {
+                id: song_id,
+                title: title.clone(),
+                artist: artist.clone(),
+                album: self
+                    .cached
+                    .as_ref()
+                    .map(|c| c.album.clone())
+                    .unwrap_or_default(),
+                duration_ms: ps.duration_ms,
+                has_lyrics: self.cached.as_ref().is_some_and(|c| !c.lyrics_path.is_empty()),
+                has_cover: self.cached.as_ref().is_some_and(|c| !c.cover_path.is_empty()),
+                metadata_revision: self
+                    .cached
+                    .as_ref()
+                    .map(|c| c.metadata_revision)
+                    .unwrap_or(0),
+            })
+        } else {
+            None
+        };
+
+        let now_playing = crate::models::NowPlaying {
+            song: song_summary,
+            position_ms: ps.position_ms,
+            duration_ms: ps.duration_ms,
+            lyrics_line,
+            lyrics_text: self.cached.as_ref().and_then(|c| c.raw_lyrics_text.clone()),
+            started_at: if ps.track_start_timestamp_ms > 0 {
+                chrono::DateTime::from_timestamp_millis(ps.track_start_timestamp_ms)
+                    .map(|dt| dt.to_rfc3339())
+            } else {
+                None
+            },
+            stream_url,
+            file_url,
+            cover_url,
+        };
+
+        (full, track_changed, now_playing)
     }
 
     async fn refresh_on_song_change(
@@ -162,8 +213,8 @@ impl PlaybackSnapshotCache {
         self.cached = None;
         self.lyrics_broadcast_song_id = None;
 
-        let song_row = sqlx::query_as::<_, (i64, String, String, String, String, i64)>(
-            "SELECT id, title, artist, cover_path, lyrics_path, metadata_revision FROM songs WHERE file_path = ?",
+        let song_row = sqlx::query_as::<_, (i64, String, String, Option<String>, Option<String>, Option<String>, i64)>(
+            "SELECT id, title, artist, album, cover_path, lyrics_path, metadata_revision FROM songs WHERE file_path = ?",
         )
         .bind(&ps.file_path)
         .fetch_optional(&state.db)
@@ -171,7 +222,7 @@ impl PlaybackSnapshotCache {
         .ok()
         .flatten();
 
-        let Some((db_song_id, title, artist, _cover_path, lyrics_path, metadata_revision)) =
+        let Some((db_song_id, title, artist, album, cover_path, lyrics_path, metadata_revision)) =
             song_row
         else {
             return;
@@ -186,25 +237,32 @@ impl PlaybackSnapshotCache {
             }
         }
 
+        let lyrics_path_str = lyrics_path.unwrap_or_default();
+        let (raw_lyrics_text, lyrics_lines) = load_lyrics(state, &lyrics_path_str);
+
         self.cached = Some(CachedSong {
             db_song_id,
             title,
             artist,
-            lyrics_lines: load_lyrics_lines(state, &lyrics_path),
+            album: album.unwrap_or_default(),
+            cover_path: cover_path.unwrap_or_default(),
+            lyrics_path: lyrics_path_str,
+            raw_lyrics_text,
+            lyrics_lines,
             metadata_revision,
         });
     }
 }
 
-fn load_lyrics_lines(state: &AppState, lyrics_path: &str) -> Option<Vec<LyricsLineDto>> {
+fn load_lyrics(state: &AppState, lyrics_path: &str) -> (Option<String>, Option<Vec<LyricsLineDto>>) {
     if lyrics_path.is_empty() {
-        return None;
+        return (None, None);
     }
 
     let lrc_full = std::path::Path::new(&state.config.audio_engine.media_path).join(lyrics_path);
-    let content = decode_lrc_text(&lrc_full)?;
-    let parsed = crate::lyrics::Lyrics::parse(&content);
-    Some(
+    let content = decode_lrc_text(&lrc_full);
+    let lines = content.as_deref().map(|c| {
+        let parsed = crate::lyrics::Lyrics::parse(c);
         parsed
             .lines
             .into_iter()
@@ -212,8 +270,9 @@ fn load_lyrics_lines(state: &AppState, lyrics_path: &str) -> Option<Vec<LyricsLi
                 time_ms: l.time_ms,
                 text: l.text,
             })
-            .collect::<Vec<_>>(),
-    )
+            .collect::<Vec<_>>()
+    });
+    (content, lines)
 }
 
 /// 读取 .lrc 文本，支持常见编码：UTF-8 → GBK/GB18030 → UTF-16（按 BOM）。

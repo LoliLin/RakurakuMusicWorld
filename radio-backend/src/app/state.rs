@@ -39,6 +39,10 @@ pub struct AppState {
     /// snapshot cache to refresh without polling the songs table every tick.
     pub metadata_revision_signal: Arc<AtomicU64>,
     pub metadata_jobs: crate::services::metadata_jobs::MetadataJobManager,
+    /// Logical layer authoritative current playback snapshot, updated on engine progress ticks.
+    pub current_playback: Arc<tokio::sync::RwLock<Option<crate::models::NowPlaying>>>,
+    /// Persistent World ID uniquely identifying this station instance across restarts.
+    pub world_id: String,
 }
 
 impl AppState {
@@ -60,6 +64,7 @@ impl AppState {
             metadata_revision_signal.clone(),
         )
         .await;
+        let world_id = crate::db::get_or_create_world_id(&db).await?;
 
         Ok(Self {
             db,
@@ -74,6 +79,8 @@ impl AppState {
             ws_full_snapshot: std::sync::RwLock::new(None),
             metadata_revision_signal,
             metadata_jobs,
+            current_playback: Arc::new(tokio::sync::RwLock::new(None)),
+            world_id,
         })
     }
 }

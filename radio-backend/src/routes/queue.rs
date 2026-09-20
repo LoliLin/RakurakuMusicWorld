@@ -134,102 +134,12 @@ async fn get_history(
     Ok(Json(ApiResponse::ok(history)))
 }
 
-/// GET /api/now-playing — 当前曲目信息（公开）
+/// GET /api/now-playing — 获取当前播放曲目与状态
 pub async fn now_playing(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<NowPlaying>>, AppError> {
-    // 1. 优先查用户请求队列（点歌）
-    let playing = sqlx::query_as::<_, crate::models::QueueItem>(
-        "SELECT * FROM queue_items WHERE status = 'playing' ORDER BY position ASC LIMIT 1",
-    )
-    .fetch_optional(&state.db)
-    .await?;
-
-    let (song, position_ms, duration_ms, lyrics_text, started_at) = match &playing {
-        Some(item) => {
-            let song = sqlx::query_as::<_, crate::models::Song>("SELECT * FROM songs WHERE id = ?")
-                .bind(item.song_id)
-                .fetch_optional(&state.db)
-                .await?;
-            let lyrics_text = match &song {
-                Some(s) if !s.lyrics_path.is_empty() => {
-                    let lrc_full = std::path::Path::new(&state.config.audio_engine.media_path)
-                        .join(&s.lyrics_path);
-                    std::fs::read_to_string(&lrc_full).ok()
-                }
-                _ => None,
-            };
-            let duration_ms = song.as_ref().map(|s| s.duration_ms).unwrap_or(0);
-            (
-                song,
-                0i64,
-                duration_ms,
-                lyrics_text,
-                item.played_at.map(|t| t.to_string()),
-            )
-        }
-        None => {
-            // 2. Folder cycle：从引擎 PlaybackState 回退
-            let ps = state.player_handle.get_state();
-            if ps.file_path.is_empty() {
-                (None, 0i64, 0i64, None, None)
-            } else {
-                let song = sqlx::query_as::<_, crate::models::Song>(
-                    "SELECT * FROM songs WHERE file_path = ?",
-                )
-                .bind(&ps.file_path)
-                .fetch_optional(&state.db)
-                .await?;
-                let lyrics_text = match &song {
-                    Some(s) if !s.lyrics_path.is_empty() => {
-                        let lrc_full = std::path::Path::new(&state.config.audio_engine.media_path)
-                            .join(&s.lyrics_path);
-                        std::fs::read_to_string(&lrc_full).ok()
-                    }
-                    _ => None,
-                };
-                (song, ps.position_ms, ps.duration_ms, lyrics_text, None)
-            }
-        }
-    };
-
-    let lyrics_line = lyrics_text
-        .as_deref()
-        .map(|t| crate::lyrics::Lyrics::parse(t))
-        .and_then(|l| l.line_at(0));
-
-    let song_summary = song.as_ref().map(|s| s.clone().into());
-    let file_url = song.as_ref().map(|s| {
-        state
-            .config
-            .audio_engine
-            .resolve_file_url(s.id, &state.config.server.base_path)
-    });
-    let cover_url = song.as_ref().map(|s| {
-        format!(
-            "{}?v={}",
-            state
-                .config
-                .audio_engine
-                .resolve_cover_url(s.id, &state.config.server.base_path),
-            s.metadata_revision
-        )
-    });
-
-    Ok(Json(ApiResponse::ok(NowPlaying {
-        song: song_summary,
-        position_ms,
-        duration_ms,
-        lyrics_line,
-        lyrics_text,
-        started_at,
-        stream_url: state.config.audio_engine.resolve_stream_url(
-            Some(&headers),
-            state.config.server.port,
-            &state.config.server.base_path,
-        ),
-        file_url,
-        cover_url,
-    })))
+    let np = WorldRuntime::new(state).now_playing(Some(&headers)).await;
+    Ok(Json(ApiResponse::ok(np)))
 }
+
