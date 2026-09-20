@@ -23,6 +23,9 @@ pub struct ServerConfig {
     pub port: u16,
     #[serde(default = "default_base_path")]
     pub base_path: String,
+    /// 是否以 headless / dedicated 模式运行（不提供前端静态文件服务，仅提供 API/WS/Stream）
+    #[serde(default)]
+    pub headless: bool,
     /// 允许的 CORS Origin 白名单；None 或空则不启用跨域凭证。
     #[serde(default)]
     pub allowed_origins: Option<Vec<String>>,
@@ -261,6 +264,10 @@ impl AppConfig {
         if let Ok(v) = std::env::var("RADIO_NCM_DOWNLOAD_CONCURRENCY") {
             config.ncm.download_concurrency = v.parse().unwrap_or(config.ncm.download_concurrency);
         }
+        if let Ok(v) = std::env::var("RADIO_HEADLESS") {
+            let v = v.trim();
+            config.server.headless = v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes");
+        }
 
         config.server.base_path = normalize_base_path(&config.server.base_path);
 
@@ -295,3 +302,53 @@ pub fn join_base_path(base_path: &str, path: &str) -> String {
         format!("{}{}", base, path)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn server_config_defaults_headless_to_false() {
+        let toml_str = r#"
+            [server]
+            port = 2241
+            [database]
+            url = "sqlite://:memory:"
+            [audio_engine]
+            media_path = "./media"
+            [device]
+            [queue]
+            [station]
+            name = "Test"
+            short_name = "T"
+            subtitle = ""
+            description = ""
+            [logging]
+        "#;
+        let config: AppConfig = toml::from_str(toml_str).unwrap();
+        assert!(!config.server.headless);
+    }
+
+    #[test]
+    fn server_config_accepts_headless_true() {
+        let toml_str = r#"
+            [server]
+            headless = true
+            [database]
+            url = "sqlite://:memory:"
+            [audio_engine]
+            media_path = "./media"
+            [device]
+            [queue]
+            [station]
+            name = "Test"
+            short_name = "T"
+            subtitle = ""
+            description = ""
+            [logging]
+        "#;
+        let config: AppConfig = toml::from_str(toml_str).unwrap();
+        assert!(config.server.headless);
+    }
+}
+

@@ -3,6 +3,7 @@ import { LayoutDashboard } from '@appica/icons-react'
 import { DeviceSection } from '@/components/settings/DeviceSection'
 import { AppearanceSection } from '@/components/settings/AppearanceSection'
 import { NcmSection } from '@/components/settings/NcmSection'
+import { ServerSection } from '@/components/settings/ServerSection'
 import { AdminOverview } from '@/components/admin/AdminOverview'
 import { AdminSongs } from '@/components/admin/AdminSongs'
 import { AdminUsers } from '@/components/admin/AdminUsers'
@@ -12,7 +13,7 @@ import { AdminStationSettings } from '@/components/admin/AdminStationSettings'
 import { useStore } from '@/store'
 
 /**
- * 设置页。设备 / 外观 / 网易云账号 + （仅管理员）「电台管理」分区，
+ * 设置页。设备 / 外观 / 网易云账号 / 服务器连接 + （仅管理员）「电台管理」分区，
  * 取代独立的 /admin 页面。
  */
 export default function SettingsPage() {
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-4">
+        <ServerSection />
         <DeviceSection />
         <AppearanceSection />
         <NcmSection />

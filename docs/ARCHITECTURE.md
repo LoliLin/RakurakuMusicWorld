@@ -35,9 +35,9 @@ flowchart LR
     engine --> ring
 ```
 
-- 单进程单端口：`radio-backend` 同时服务 REST `/api`、WebSocket `/ws`、音频 `/stream`、静态前端（`routes/mod.rs:build_router`）。
-- Electron 只是壳：创建窗口、加载 URL、生命周期。无 Node 集成（`contextIsolation: true, nodeIntegration: false, sandbox: true`，`electron/main.mjs` webPreferences）。
-- **尚未完成 Logical/Physical Side 分离**；`WorldRuntime` 已收敛 World command/query 的入口，但世界状态仍散布在 engine 内部状态、`AppState` 字段与 SQLite 三处。
+- 单进程单端口：`radio-backend` 同时服务 REST `/api`、WebSocket `/ws`、音频 `/stream`、静态前端（`routes/mod.rs:build_router`）。亦可通过 `rakuraku-music-world-server` 或 `--headless` 独立以 Dedicated Server 模式运行（无静态文件依赖，适合 Linux 服务器 / systemd 部署）。
+- Electron 壳与 Web Client：既可作为本地单机界面，亦可在设置页配置 Remote Server 连接远程 Dedicated World。
+- **Logical/Physical Side 分离已就绪**：`WorldRuntime` 是 Logical Side 入口；`physical/mod.rs`（`PhysicalStorage` / `PhysicalTransport` / `PhysicalPlayerRegistry` / `PhysicalLifecycle`）已将物理持久化、流传输、听众注册与无头生命周期抽象为独立 trait。
 
 ## 2. 分层现状对照
 
@@ -45,10 +45,10 @@ flowchart LR
 
 | 组件 | 位置 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| UI | `frontend/src/pages/`、`components/` | [Existing] | 播放器 / 曲库 / 设置 三页（`router.tsx`），管理面板内嵌在 Settings |
+| UI | `frontend/src/pages/`、`components/` | [Existing] | 播放器 / 曲库 / 设置 三页（`router.tsx`），管理面板内嵌在 Settings；设置页包含 `ServerSection` 供连接远程 World |
 | Client State | `frontend/src/store.ts` (zustand) | [Needs Refactor] | 单 store 混合了服务器状态镜像（playback/queue/listeners）、本地 UI 状态（volume/accent/toast）、本地持久化（favorites 走 localStorage，`store.ts:toggleFavorite`） |
-| Network | `api/client.ts`、`api/index.ts`、`api/ws.ts` | [Existing] | REST 包装解包 + WS 分发；`applyPlaybackState` / `applyQueueUpdate` 直写 store |
-| Audio 输出 | `audio/streamAudio.ts` | [Existing] | 单例 `<audio>` → `/stream`；切歌重连（`?r=` nonce）、指数退避、停滞看门狗 |
+| Network | `api/client.ts`、`api/index.ts`、`api/ws.ts` | [Existing] | REST 包装解包 + WS 分发；`appRoot`/`wsUrl` 动态支持配置远程 World；`credentials: 'include'` 与 `x-device-token` 保证跨域身份识别 |
+| Audio 输出 | `audio/streamAudio.ts` | [Existing] | 单例 `<audio>` → `/stream`；动态基于 `appRoot()` 支持远程流；切歌重连（`?r=` nonce）、指数退避、停滞看门狗 |
 | 位置平滑 | `hooks/usePlaybackClock.ts` | [Existing] | 用 `position_ms + (Date.now() - timestamp_ms)` 客户端外推；**这是 World Clock 思路的雏形，但时间基准是墙钟而非服务器时钟** |
 | 桌面壳 | `electron/main.mjs` | [Existing] | 窗口 1440×900（双栏 xl 断点需要 ≥1280 CSS px）、外部链接走系统浏览器 |
 | Preload API | `electron/preload.mjs` | [Existing]（空） | 无任何 contextBridge 暴露 |
@@ -57,7 +57,7 @@ flowchart LR
 
 | 组件 | 位置 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| 路由/HTTP 适配 | `routes/` | [Existing] | 纯适配层：解析请求 → 调 service → JSON 响应。无业务逻辑内嵌（除 `station.rs` 的 URL 组装） |
+| 路由/HTTP 适配 | `routes/` | [Existing] | 纯适配层：解析请求 → 调 service → JSON 响应。无业务逻辑内嵌；支持 headless 模式（免除 `static/` 依赖，根路径暴露服务信息） |
 | Logical Side 入口 | `world.rs:WorldRuntime` | [Partial] | routes 只通过 World command/query 访问播放与队列；运行时暂复用旧 queue service 和 engine |
 | 播放状态权威 | `world.rs` + `services/playback_broadcast.rs` | [Existing] | PlaybackState 权威提升至 Logical 层（`AppState.current_playback` + `WorldRuntime::now_playing`），engine 仅上报物理进度 |
 | 队列权威 | `services/queue/` + `queue_items` 表 | [Partial] | DB 是 pending 队列唯一权威；engine request_queue 已降级为执行细节；`queue_sync` 互斥锁与同步语义完全收进 Logical 层 |

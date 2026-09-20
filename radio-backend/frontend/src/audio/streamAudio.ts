@@ -14,6 +14,7 @@
 // overlay loop.
 
 import { useStore } from '@/store'
+import { appRoot, appUrl } from '@/api/client'
 
 let audio: HTMLAudioElement | null = null
 let reconnectNonce = 0
@@ -35,7 +36,7 @@ const MAX_RETRY_MS = 8000
 /** origin + pathname comparison — ignores the ?r= reconnect nonce. */
 function urlBase(u: string): string {
   try {
-    const parsed = new URL(u, window.location.origin)
+    const parsed = new URL(u, appRoot())
     return `${parsed.origin}${parsed.pathname}`
   } catch {
     return u
@@ -81,7 +82,12 @@ function ensureAudio(): HTMLAudioElement {
 function desiredStreamUrl(): string | null {
   const p = useStore.getState().playback
   if (!p || p.status === 'stopped') return null
-  return p.streamUrl
+  const url = p.streamUrl
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  return appUrl(url.startsWith('/') ? url : `/${url}`)
 }
 
 export function reconnect() {

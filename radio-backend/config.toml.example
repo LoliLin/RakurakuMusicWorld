@@ -9,6 +9,11 @@ port = 2241
 # Public URL prefix. Use "/" for root deployments or "/radio" when the
 # backend is served at https://example.com/radio/.
 base_path = "/"
+# 是否以 headless / dedicated 模式运行（不提供静态前端文件，仅提供 API/WS/Stream）
+# 可通过环境变量 RADIO_HEADLESS=1 或 --headless 参数覆盖
+headless = false
+# 允许跨域请求的来源列表（Dedicated 部署配合远程前端使用，如 ["https://radio.example.com"]）
+# allowed_origins = ["http://localhost:5173"]
 
 [database]
 # SQLite（默认，无需外部依赖）

@@ -18,6 +18,7 @@ export interface StationInfo {
   stream_url: string
   ws_url: string
   needs_setup: boolean
+  world_id?: string
 }
 
 // ── songs ──────────────────────────────────────────────────

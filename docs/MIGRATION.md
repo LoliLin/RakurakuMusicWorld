@@ -90,7 +90,18 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 1. `radio-backend` 增加 headless 运行模式（无静态前端依赖、日志为主）——复用同一 Logical Side。
 2. 客户端可配置 Remote World 地址（Electron 设置页新增连接目标；Cookie 流程适配跨域或反代同域）。
 
-**验收**：`rakuraku-music-world-server` 在无桌面 Linux 跑通；Web/Electron 客户端连 Dedicated 与连本机行为一致。
+**已落地的进展**：
+1. `radio-backend/Cargo.toml` 新增双二进制目标：`radio-backend` 与专用入口 `rakuraku-music-world-server`。
+2. `config.rs` 引入 `headless: bool` 配置与 `RADIO_HEADLESS` 环境变量支持，`main.rs` 支持 `--headless` 命令行参数。
+3. `routes/mod.rs` 在 headless 模式下免除静态文件依赖，`GET /` 暴露结构化专用服务信息响应（包含 world_id、station_name、版本与各端点）。
+4. `PhysicalLifecycle` trait 补充 `is_headless(&self)` 查询能力并在 `IntegratedPhysicalSide` 中落地。
+5. 认证与跨域增强：`auth.rs` 提取器扩展支持 `X-Device-Token` 与 `Authorization: Bearer`，响应头暴露 `x-device-token`，`bootstrap.rs` CORS 支持凭据与 Token 头透传。
+6. 前端远程 World 支持：`client.ts` 抽象 `appRoot` 与 `wsUrl`，支持根据存储的自定义地址动态连接；`streamAudio.ts` 正确解析远程音频流；设置页新增 `ServerSection` 支持远程连接测试、切换与重置。
+7. `build_release.sh` 编译并复制两个二进制，生成专用 `start-server.sh` 启动脚本。
+
+**Stage 5 已全面完成**。接下来可进入 Stage 6（LAN Discovery / Browser）。
+
+**验收**：`rakuraku-music-world-server` 在无桌面 Linux/无静态资源目录下跑通；Web/Electron 客户端连 Dedicated 与连本机行为一致。
 
 ## Stage 6 — LAN（最后做）
 
@@ -115,7 +126,7 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 ## 当前位置
 
 ```
-[██████████████████] Stage 4 全部完成：Physical Side trait 边界定义、IntegratedPhysicalSide 实现、world_id 持久化
-下一步：Stage 5（Dedicated Server，无 GUI headless 模式）
-已完成前置：Rebrand、Electron 壳、依赖升级、协议文档与 Stage 1/2 兼容扩展、WorldRuntime 接缝、playlist 规则/存储分层、双队列归一、PlaybackState 权威上移、Physical 4 大 trait + Integrated 实现 + world_id
+[██████████████████████] Stage 5 全部完成：Dedicated Server (无 GUI Headless 模式) + 客户端远程 World 连接与跨域认证
+下一步：Stage 6（LAN Discovery 与 World Browser）
+已完成前置：Rebrand、Electron 壳、依赖升级、协议文档与 Stage 1/2 兼容扩展、WorldRuntime 接缝、playlist 规则/存储分层、双队列归一、PlaybackState 权威上移、Physical 4 大 trait + Integrated 实现 + world_id、Dedicated Server + Remote World
 ```

@@ -41,8 +41,27 @@ pub fn extract_device_token_from_cookie(headers: &HeaderMap) -> Option<String> {
 }
 
 /// 从请求中提取 device_token。
+/// 优先级：
+/// 1. Cookie 中的 device_token
+/// 2. X-Device-Token 请求头（跨域或第三方 Cookie 受限时客户端使用）
+/// 3. Authorization: Bearer <token> 请求头
 pub fn extract_device_token(headers: &HeaderMap) -> Option<String> {
     extract_device_token_from_cookie(headers)
+        .or_else(|| {
+            headers
+                .get("x-device-token")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
+        .or_else(|| {
+            headers
+                .get(header::AUTHORIZATION)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|auth| auth.strip_prefix("Bearer "))
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
 }
 
 /// 通过 device_token 查找已注册设备用户，不会创建新记录。
@@ -200,3 +219,39 @@ pub async fn claim_admin(
 /// claim_admin 暴力尝试防护状态（进程内）。
 static CLAIM_FAILURES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static CLAIM_LOCK_UNTIL: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn extracts_token_from_cookie() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, HeaderValue::from_static("foo=bar; device_token=test-token-123; other=baz"));
+        assert_eq!(extract_device_token(&headers), Some("test-token-123".to_string()));
+    }
+
+    #[test]
+    fn extracts_token_from_x_device_token_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-device-token", HeaderValue::from_static("test-token-456"));
+        assert_eq!(extract_device_token(&headers), Some("test-token-456".to_string()));
+    }
+
+    #[test]
+    fn extracts_token_from_authorization_bearer() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, HeaderValue::from_static("Bearer test-token-789"));
+        assert_eq!(extract_device_token(&headers), Some("test-token-789".to_string()));
+    }
+
+    #[test]
+    fn cookie_takes_priority_over_headers() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::COOKIE, HeaderValue::from_static("device_token=cookie-token"));
+        headers.insert("x-device-token", HeaderValue::from_static("header-token"));
+        assert_eq!(extract_device_token(&headers), Some("cookie-token".to_string()));
+    }
+}
+

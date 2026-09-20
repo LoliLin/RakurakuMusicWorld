@@ -107,6 +107,13 @@ mv -f "$DIST_DIR/radio-backend.new" "$DIST_DIR/radio-backend"
 chmod +x "$DIST_DIR/radio-backend"
 print_success "radio-backend 二进制文件已复制"
 
+if [ -f "$TARGET_DIR/release/rakuraku-music-world-server" ]; then
+    cp "$TARGET_DIR/release/rakuraku-music-world-server" "$DIST_DIR/rakuraku-music-world-server.new"
+    mv -f "$DIST_DIR/rakuraku-music-world-server.new" "$DIST_DIR/rakuraku-music-world-server"
+    chmod +x "$DIST_DIR/rakuraku-music-world-server"
+    print_success "rakuraku-music-world-server (Dedicated Server) 二进制文件已复制"
+fi
+
 # 复制前端静态文件
 if [ -d "$BACKEND_DIR/static" ]; then
     rm -rf "$DIST_DIR/static"
@@ -149,6 +156,26 @@ echo "日志文件: server.log"
 echo "访问 http://localhost:2241"
 STARTEMBED
 chmod +x "$DIST_DIR/start.sh"
+
+cat > "$DIST_DIR/start-server.sh" << 'STARTSERVEREMBED'
+#!/bin/bash
+cd "$(dirname "$0")"
+
+echo "启动 RakurakuMusicWorld Dedicated Server (Headless)..."
+
+if [ -f .server.pid ] && kill -0 $(cat .server.pid) 2>/dev/null; then
+    echo "服务器已在运行中 (PID $(cat .server.pid))"
+    exit 1
+fi
+
+nohup ./rakuraku-music-world-server > server.log 2>&1 &
+PID=$!
+echo $PID > .server.pid
+echo "Dedicated Server 已启动 (PID $PID)"
+echo "日志文件: server.log"
+echo "端口: 2241 (headless 模式，无静态前端依赖)"
+STARTSERVEREMBED
+chmod +x "$DIST_DIR/start-server.sh"
 
 cat > "$DIST_DIR/stop.sh" << 'STOPEMBED'
 #!/bin/bash

@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
-/// RakurakuMusicWorld - Rust 业务后端
+/// RakurakuMusicWorld — Dedicated Server Entrypoint (Headless)
 ///
-/// 处理 HTTP API、WebSocket 广播、设备身份验证（基于 Cookie）、
-/// 队列管理、歌词解析，并内嵌音频引擎。
+/// Runs RakurakuMusicWorld as a headless dedicated server without static frontend
+/// file dependencies, suitable for server, Linux container, and systemd deployments.
 mod app;
 mod auth;
 mod config;
@@ -20,13 +20,13 @@ mod world;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Default to headless mode for dedicated server
+    std::env::set_var("RADIO_HEADLESS", "1");
+
     let args: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--headless" => {
-                std::env::set_var("RADIO_HEADLESS", "1");
-            }
             "-c" | "--config" => {
                 if i + 1 < args.len() {
                     std::env::set_var("RADIO_CONFIG", &args[i + 1]);
@@ -34,12 +34,11 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
             "-h" | "--help" => {
-                println!("RakurakuMusicWorld — Community Radio Web App & Audio Engine");
+                println!("RakurakuMusicWorld — Dedicated Headless Server");
                 println!();
-                println!("Usage: radio-backend [OPTIONS]");
+                println!("Usage: rakuraku-music-world-server [OPTIONS]");
                 println!();
                 println!("Options:");
-                println!("  --headless           Run in headless / dedicated mode without static files");
                 println!("  -c, --config <PATH>  Path to configuration file (default: config.toml)");
                 println!("  -h, --help           Print help information");
                 return Ok(());
@@ -51,4 +50,3 @@ async fn main() -> anyhow::Result<()> {
 
     app::bootstrap::run().await
 }
-

@@ -108,6 +108,22 @@ pub async fn run() -> anyhow::Result<()> {
 }
 
 fn cors_layer(config: &crate::config::ServerConfig) -> CorsLayer {
+    let custom_token_header = header::HeaderName::from_static("x-device-token");
+    let allowed_methods = [
+        Method::GET,
+        Method::POST,
+        Method::PUT,
+        Method::DELETE,
+        Method::PATCH,
+        Method::OPTIONS,
+    ];
+    let allowed_headers = [
+        header::CONTENT_TYPE,
+        header::ACCEPT,
+        header::AUTHORIZATION,
+        custom_token_header.clone(),
+    ];
+
     match config.allowed_origins.as_deref() {
         Some(origins) if !origins.is_empty() => {
             let origins: Vec<axum::http::HeaderValue> = origins
@@ -116,27 +132,15 @@ fn cors_layer(config: &crate::config::ServerConfig) -> CorsLayer {
                 .collect();
             CorsLayer::new()
                 .allow_origin(origins)
-                .allow_methods([
-                    Method::GET,
-                    Method::POST,
-                    Method::PUT,
-                    Method::DELETE,
-                    Method::PATCH,
-                    Method::OPTIONS,
-                ])
-                .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION])
+                .allow_methods(allowed_methods)
+                .allow_headers(allowed_headers)
+                .expose_headers([custom_token_header])
                 .allow_credentials(true)
         }
         _ => CorsLayer::new()
-            .allow_methods([
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::DELETE,
-                Method::PATCH,
-                Method::OPTIONS,
-            ])
-            .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION]),
+            .allow_methods(allowed_methods)
+            .allow_headers(allowed_headers)
+            .expose_headers([custom_token_header]),
     }
 }
 

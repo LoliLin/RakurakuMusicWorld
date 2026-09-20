@@ -67,6 +67,11 @@ pub trait PhysicalLifecycle: Send + Sync {
 
     /// Base path prefix.
     fn base_path(&self) -> &str;
+
+    /// Whether the server is running in headless / dedicated mode (no static frontend assets).
+    fn is_headless(&self) -> bool {
+        false
+    }
 }
 
 /// Integrated/Hosted Physical Side implementation.
@@ -162,6 +167,10 @@ impl PhysicalLifecycle for IntegratedPhysicalSide {
 
     fn base_path(&self) -> &str {
         &self.state.config.server.base_path
+    }
+
+    fn is_headless(&self) -> bool {
+        self.state.config.server.headless
     }
 }
 

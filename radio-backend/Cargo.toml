@@ -4,6 +4,14 @@ version = "3.1.0-beta"
 edition = "2021"
 description = "RakurakuMusicWorld - Rust Business Backend"
 
+[[bin]]
+name = "radio-backend"
+path = "src/main.rs"
+
+[[bin]]
+name = "rakuraku-music-world-server"
+path = "src/server_main.rs"
+
 [dependencies]
 # 异步运行时
 tokio = { version = "1", features = ["full"] }

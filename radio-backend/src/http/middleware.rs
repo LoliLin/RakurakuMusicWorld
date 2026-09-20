@@ -46,7 +46,7 @@ pub async fn device_cookie_middleware(
 
     let mut response = next.run(request).await;
 
-    if let Some(new_token) = new_token {
+    if let Some(new_token) = new_token.as_ref() {
         let max_age = state.config.device.cookie_max_age_days * 86400;
         let cookie_path = state.config.server.base_path.as_str();
         let secure_attr = if is_secure { "; Secure" } else { "" };
@@ -57,6 +57,14 @@ pub async fn device_cookie_middleware(
 
         if let Ok(val) = header::HeaderValue::from_str(&cookie_value) {
             response.headers_mut().insert(header::SET_COOKIE, val);
+        }
+    }
+
+    // 将生效的 device_token 暴露在响应头中，供跨域或无 Cookie 环境（如移动端/原生客户端）存储与复用。
+    let effective_token = new_token.as_deref().or(device_token.as_deref());
+    if let Some(token) = effective_token {
+        if let Ok(val) = header::HeaderValue::from_str(token) {
+            response.headers_mut().insert("x-device-token", val);
         }
     }
 

@@ -1,7 +1,39 @@
 import type { ApiResponse } from '@/types'
 
-/** URL root: origin + BASE_URL (e.g. https://host/radio) with no trailing slash. */
+const SERVER_URL_KEY = 'rakuraku.server_url'
+const DEVICE_TOKEN_KEY = 'rakuraku.device_token'
+
+export function getCustomServerUrl(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem(SERVER_URL_KEY)?.trim().replace(/\/+$/, '') || ''
+}
+
+export function setCustomServerUrl(url: string | null): void {
+  if (typeof window === 'undefined') return
+  if (!url || !url.trim()) {
+    localStorage.removeItem(SERVER_URL_KEY)
+  } else {
+    localStorage.setItem(SERVER_URL_KEY, url.trim().replace(/\/+$/, ''))
+  }
+}
+
+export function getStoredDeviceToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(DEVICE_TOKEN_KEY)
+}
+
+export function setStoredDeviceToken(token: string): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(DEVICE_TOKEN_KEY, token)
+}
+
+/** URL root: custom server or origin + BASE_URL with no trailing slash. */
 export function appRoot(): string {
+  const custom = getCustomServerUrl()
+  if (custom) return custom
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    return 'http://localhost:2241'
+  }
   return (window.location.origin + import.meta.env.BASE_URL).replace(/\/+$/, '')
 }
 
@@ -12,8 +44,15 @@ export function appUrl(path: string): string {
 
 /** WebSocket URL for a server path starting with "/". */
 export function wsUrl(path: string): string {
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${proto}://${window.location.host}${import.meta.env.BASE_URL.replace(/\/+$/, '')}${path}`
+  const root = appRoot()
+  try {
+    const url = new URL(root)
+    const proto = url.protocol === 'https:' ? 'wss' : 'ws'
+    return `${proto}://${url.host}${url.pathname.replace(/\/+$/, '')}${path}`
+  } catch {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    return `${proto}://${window.location.host}${import.meta.env.BASE_URL.replace(/\/+$/, '')}${path}`
+  }
 }
 
 export class ApiError extends Error {
@@ -26,18 +65,39 @@ export class ApiError extends Error {
   }
 }
 
+function buildHeaders(initHeaders?: HeadersInit): Headers {
+  const headers = new Headers(initHeaders)
+  const token = getStoredDeviceToken()
+  if (token && !headers.has('x-device-token')) {
+    headers.set('x-device-token', token)
+  }
+  return headers
+}
+
 /** Fetch a JSON endpoint, unwrap {success, data, error}, throw ApiError on failure. */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
+    const isFormData = init?.body instanceof FormData
+    const headers = buildHeaders(init?.headers)
+    if (!isFormData && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json')
+    }
     res = await fetch(appUrl(path), {
-      credentials: 'same-origin',
+      credentials: 'include',
       ...init,
-      headers: init?.body instanceof FormData ? init?.headers : { 'Content-Type': 'application/json', ...init?.headers },
+      headers,
     })
   } catch {
     throw new ApiError('网络错误，无法连接服务器', 0)
   }
+
+  // 记录后端反馈的 device_token 以便在跨域/第三方 Cookie 受限时使用
+  const returnedToken = res.headers.get('x-device-token')
+  if (returnedToken) {
+    setStoredDeviceToken(returnedToken)
+  }
+
   if (res.status === 401) {
     throw new ApiError('需要登录', 401)
   }
@@ -60,7 +120,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
 /** Fetch raw bytes (blob) for covers/downloads. */
 export async function apiBlob(path: string, init?: RequestInit): Promise<Blob> {
-  const res = await fetch(appUrl(path), { credentials: 'same-origin', ...init })
+  const headers = buildHeaders(init?.headers)
+  const res = await fetch(appUrl(path), { credentials: 'include', ...init, headers })
   if (!res.ok) throw new ApiError(`请求失败 (${res.status})`, res.status)
   return res.blob()
 }
@@ -71,7 +132,8 @@ export async function consumeSse(
   onEvent: (data: unknown) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(appUrl(path), { credentials: 'same-origin', signal })
+  const headers = buildHeaders()
+  const res = await fetch(appUrl(path), { credentials: 'include', headers, signal })
   if (!res.ok || !res.body) throw new ApiError(`SSE 连接失败 (${res.status})`, res.status)
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
