@@ -4,6 +4,7 @@ use crate::error::AppError;
 use crate::models::ApiResponse;
 use crate::routes::admin::get_admin;
 use crate::services::metadata::{find_cover, read_local_metadata};
+use crate::world::{WorldCommand, WorldRuntime};
 use axum::{
     extract::{Path, State},
     http::HeaderMap,
@@ -120,13 +121,7 @@ pub async fn delete_song(
         .execute(&state.db)
         .await?;
 
-    state
-        .player_handle
-        .send_command(radio_engine::types::AudioCommand {
-            cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-            song_id: None,
-            file_path: None,
-        });
+    WorldRuntime::new(state.clone()).dispatch(WorldCommand::ReloadQueue);
 
     Ok(Json(ApiResponse::ok(format!("已删除: {}", song.title))))
 }
@@ -280,13 +275,7 @@ pub async fn rescan_songs(
         .await?;
 
     if new_songs > 0 {
-        state
-            .player_handle
-            .send_command(radio_engine::types::AudioCommand {
-                cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-                song_id: None,
-                file_path: None,
-            });
+        WorldRuntime::new(state.clone()).dispatch(WorldCommand::ReloadQueue);
     }
 
     Ok(Json(ApiResponse::ok(job)))

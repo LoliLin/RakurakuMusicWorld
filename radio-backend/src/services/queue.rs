@@ -1,4 +1,8 @@
-/// 队列管理器：共享的电台队列（FIFO），支持管理员覆盖操作。
+//! Playlist persistence and audio-queue adapter.
+//!
+//! HTTP/background callers enter through `crate::world::WorldRuntime`.
+//! This module retains the current SQLite and embedded-engine implementation
+//! until the Logical playlist is split from the Physical persistence side.
 use crate::app::state::AppState;
 use crate::error::AppError;
 use crate::models::{QueueItem, QueueItemDisplay, SongSummary};
@@ -319,7 +323,9 @@ pub async fn move_queue_item(
     tx.commit().await?;
 
     // Keep the embedded engine request queue in sync with the DB order.
-    rehydrate_engine_queue(state).await?;
+    crate::world::WorldRuntime::new(state.clone())
+        .rehydrate_playlist()
+        .await?;
 
     Ok(())
 }
@@ -382,13 +388,7 @@ pub async fn skip_current(state: &Arc<AppState>) -> Result<(), AppError> {
         .await?;
     }
 
-    let command = radio_engine::types::AudioCommand {
-        cmd_type: radio_engine::types::AudioCommandType::Skip,
-        song_id: None,
-        file_path: None,
-    };
-
-    crate::websocket::publish_command(state, &command).await?;
+    crate::world::WorldRuntime::new(state.clone()).dispatch(crate::world::WorldCommand::Skip);
 
     crate::websocket::broadcast(
         state,

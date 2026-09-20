@@ -213,11 +213,3 @@ pub fn broadcast(state: &Arc<AppState>, msg: WsMessage) {
     let _ = state.ws_tx.send(json);
 }
 
-/// 向音频引擎发送命令（直接调用内嵌引擎）。
-pub async fn publish_command(
-    state: &Arc<AppState>,
-    command: &radio_engine::types::AudioCommand,
-) -> Result<(), AppError> {
-    state.player_handle.send_command(command.clone());
-    Ok(())
-}

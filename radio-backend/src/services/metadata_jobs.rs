@@ -4,8 +4,8 @@ use crate::models::Song;
 use crate::services::metadata::{
     cache_lyrics, ensure_cover_cached, find_cover, find_lyrics, read_local_metadata,
 };
+use crate::world::{WorldCommand, WorldCommandDispatcher};
 use anyhow::{Context, Result};
-use radio_engine::player::PlayerHandle;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use std::collections::{HashMap, HashSet};
@@ -100,15 +100,21 @@ impl MetadataJobManager {
     pub async fn new(
         db: SqlitePool,
         media_root: PathBuf,
-        player: PlayerHandle,
+        commands: WorldCommandDispatcher,
         revision_signal: Arc<AtomicU64>,
     ) -> Self {
         let (tx, mut rx) = mpsc::channel::<String>(32);
         let worker_db = db.clone();
         tokio::spawn(async move {
             while let Some(job_id) = rx.recv().await {
-                if let Err(error) =
-                    run_job(&worker_db, &media_root, &player, &revision_signal, &job_id).await
+                if let Err(error) = run_job(
+                    &worker_db,
+                    &media_root,
+                    &commands,
+                    &revision_signal,
+                    &job_id,
+                )
+                .await
                 {
                     tracing::error!(job_id, ?error, "metadata job failed");
                     let _ = sqlx::query(
@@ -227,7 +233,7 @@ pub async fn retry_job(
 async fn run_job(
     db: &SqlitePool,
     media_root: &Path,
-    player: &PlayerHandle,
+    commands: &WorldCommandDispatcher,
     revision_signal: &Arc<AtomicU64>,
     job_id: &str,
 ) -> Result<()> {
@@ -312,11 +318,7 @@ async fn run_job(
         sqlx::query("UPDATE metadata_jobs SET status='completed', updated_at=datetime('now'), finished_at=datetime('now') WHERE id=?")
             .bind(job_id).execute(db).await?;
     }
-    player.send_command(radio_engine::types::AudioCommand {
-        cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-        song_id: None,
-        file_path: None,
-    });
+    commands.dispatch(WorldCommand::ReloadQueue);
     Ok(())
 }
 

@@ -4,6 +4,7 @@ use crate::error::AppError;
 use crate::models::{ApiResponse, DownloadEvent, DownloadRequest};
 use crate::routes::admin::get_admin;
 use crate::services::ncm::{run_download, DownloadRuntime, NcmClient};
+use crate::world::{WorldCommand, WorldRuntime};
 use axum::{
     extract::State,
     http::HeaderMap,
@@ -51,7 +52,7 @@ pub fn spawn_download_job(
     let ncm_cookie = crate::routes::admin::ncm::read_admin_ncm_cookie();
     let concurrency = state.config.ncm.download_concurrency.max(1);
     let client = NcmClient::new(device_id, ncm_cookie);
-    let player_handle = state.player_handle.clone();
+    let world = WorldRuntime::new(state.clone());
 
     {
         let mut running = download_running().lock().unwrap_or_else(|e| e.into_inner());
@@ -115,11 +116,7 @@ pub fn spawn_download_job(
         });
 
         // 触发播放队列重载
-        player_handle.send_command(radio_engine::types::AudioCommand {
-            cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-            song_id: None,
-            file_path: None,
-        });
+        world.dispatch(WorldCommand::ReloadQueue);
         tracing::info!("Triggered play queue reload after download");
 
         let mut running = download_running().lock().unwrap_or_else(|e| e.into_inner());

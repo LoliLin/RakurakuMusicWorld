@@ -11,6 +11,7 @@ use crate::services::download_tasks::{
 };
 use crate::services::ncm::{api, NcmClient};
 use crate::services::netdisk;
+use crate::world::{WorldCommand, WorldRuntime};
 use axum::{
     extract::{Query, State},
     http::HeaderMap,
@@ -89,7 +90,7 @@ fn launch_ncm_batch(
     let ncm_cookie = crate::routes::admin::ncm::read_admin_ncm_cookie();
     let client = NcmClient::new(device_id, ncm_cookie);
     let db = state.db.clone();
-    let player_handle = state.player_handle.clone();
+    let world = WorldRuntime::new(state);
     let context = NcmBatchContext {
         client,
         quality,
@@ -101,11 +102,7 @@ fn launch_ncm_batch(
 
     tokio::spawn(async move {
         run_ncm_batch(task, items, context).await;
-        player_handle.send_command(radio_engine::types::AudioCommand {
-            cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-            song_id: None,
-            file_path: None,
-        });
+        world.dispatch(WorldCommand::ReloadQueue);
     });
 }
 
@@ -170,7 +167,7 @@ pub async fn start_batch_download(
     }
 
     let media_path = state.config.audio_engine.media_path.clone();
-    let player_handle = state.player_handle.clone();
+    let world = WorldRuntime::new(state.clone());
 
     match source.as_str() {
         "ncm" => {
@@ -184,11 +181,7 @@ pub async fn start_batch_download(
         "netdisk" => {
             tokio::spawn(async move {
                 run_netdisk_batch(task, body.items, media_path).await;
-                player_handle.send_command(radio_engine::types::AudioCommand {
-                    cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-                    song_id: None,
-                    file_path: None,
-                });
+                world.dispatch(WorldCommand::ReloadQueue);
             });
         }
         "spotify" => {

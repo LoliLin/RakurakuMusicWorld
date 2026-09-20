@@ -83,9 +83,9 @@ queue_items: id, song_id, device_user_id, status(pending|playing|played), positi
 
 | 目标 | 现有 | 位置 | 缺口 |
 | --- | --- | --- | --- |
-| Command | `AudioCommand{cmd_type, song_id, file_path}`（engine 内）+ REST 动作（POST /api/queue, /api/queue/:id/move…） | `types.rs:139`, `routes/queue.rs` | 命令分两路：engine 命令与 DB 动作，无统一 Command 层 |
-| Event | `WsMessage` 5 变体：PlaybackState / QueueUpdate / Notice / Ping / ListenersUpdate | `models/ws.rs:16` | QueueUpdate 是通知不是状态（前端收到后**回查 REST**，`store.ts:applyQueueUpdate`）；无 TrackChanged 等细粒度事件 |
-| State | PlaybackState（WS 500ms）+ REST 快照（/api/now-playing, /api/queue） | `playback_broadcast.rs` | 无 Join 时的全量 Snapshot 语义（只有歌词全量帧补发，`websocket.rs:112-127`） |
+| Command | `WorldCommand` + `WorldRuntime::dispatch`；底层仍翻译为 `AudioCommand`；REST 动作经 `WorldRuntime` | `world.rs`, `types.rs`, `routes/` | World command 已有统一后端入口，但更多 DB 规则仍在旧 queue service |
+| Event | `WsMessage` 6 变体：PlaybackState / QueueUpdate / Notice / Ping / ListenersUpdate / TrackChanged | `models/ws.rs` | QueueUpdate 是通知不是状态（前端收到后**回查 REST**）；仍缺 PlayerJoined/WorldEvent 等细粒度事件 |
+| State | `WorldRuntime::snapshot()` 聚合 Playback/Playlist/Players + REST `/api/now-playing`、`/api/queue` | `world.rs`, `playback_broadcast.rs` | snapshot 尚未成为 WS join 的完整协议；权威仍分散在 engine/SQLite/AppState |
 
 ## 7. 关系图（现状）
 

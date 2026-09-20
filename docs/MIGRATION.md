@@ -49,14 +49,21 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 
 ## Stage 3 — Logical Side 抽取（后端内部分层）
 
-**做什么**：
-1. 把 `services/queue.rs` 的队列操作 + `playback_snapshot.rs` + `listeners` 收敛到 Logical 层模块；routes 只剩"HTTP ↔ Command/Query"适配。
+**已落地的第一步**：
+1. `radio-backend/src/world.rs:WorldRuntime` 成为 Logical Side 的 Command/Query 入口；routes 不再直接调用队列 service 或 `PlayerHandle`。
+2. 播放控制、队列增删移动/跳过、启动 rehydrate、metadata/download 后的队列重载，都经 `WorldCommand` 或 World playlist query 进入。
+3. `WorldRuntime::snapshot()` 提供统一 World snapshot query；`WorldState` 仍只翻译现有 engine/SQLite/listener 权威，不复制状态。
+
+**仍待完成**：
+1. 把 `services/queue.rs` 的规则与存储操作进一步拆为 Logical playlist 与 Physical persistence adapter。
 2. **归一双队列**：engine 请求队列降级为 Logical 层的执行细节（`rehydrate_engine_queue` 语义由 Logical 层 owning）；`queue_sync` 锁收进 Logical 层。
 3. PlaybackState 权威从 engine 内部状态提升：engine 保留音频执行，状态发布改由 Logical 层聚合（engine 回报进度事件）。
 
-**风险点**：`player.rs:run()` 主循环与 500ms 发布节奏是稳定性核心；此步需要 `ring_buffer` 内联测试 + 长跑冒烟（多客户端、反复切歌、重启续播）。
+**风险点**：`player.rs:run()` 主循环与 500ms 发布节奏是稳定性核心；完整 Stage 3 仍需要 `ring_buffer` 内联测试 + 长跑冒烟（多客户端、反复切歌、重启续播）。
 
-**验收**：协议文档零变更；`curl` 全端点 diff 为空；/stream 行为 diff 为空。
+**当前验收闸门**：本次边界抽取必须保持协议、REST、`/stream` 行为不变；后续物理侧抽取前再做完整端点 diff。
+
+---
 
 ## Stage 4 — Physical Side 抽象（Integrated 第一）
 
@@ -98,6 +105,7 @@ Target:   Client(UI+Client API) → Protocol → Logical Side(World State) → P
 ## 当前位置
 
 ```
-[████████░░░░░░] Stage 0 未开始（本文档完成后即可进入）
-已完成的前提：Electron 壳、Rebrand、依赖升级、协议文档 v3 与代码对齐
+[██████████░░░░] Stage 3 第一段：WorldRuntime Logical Side 接缝已落地
+待完成：playlist 规则/存储拆分、双队列归一、engine PlaybackState 权威上移
+已完成前置：Rebrand、Electron 壳、依赖升级、协议文档与 Stage 1/2 兼容扩展
 ```

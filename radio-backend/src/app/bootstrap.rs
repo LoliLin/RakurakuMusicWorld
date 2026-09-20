@@ -62,7 +62,10 @@ pub async fn run() -> anyhow::Result<()> {
     let state = Arc::new(AppState::new(config, ring_buffer, player_handle).await?);
 
     // 把 DB 里 status='pending' 的曲子重新装回引擎请求队列（重启续播）。
-    if let Err(e) = crate::services::queue::rehydrate_engine_queue(&state).await {
+    if let Err(e) = crate::world::WorldRuntime::new(state.clone())
+        .rehydrate_playlist()
+        .await
+    {
         tracing::error!("Failed to rehydrate engine queue from DB: {:?}", e);
     }
 

@@ -4,6 +4,7 @@ use crate::error::AppError;
 use crate::models::ApiResponse;
 use crate::routes::admin::get_admin;
 use crate::services::metadata::{find_cover, read_local_metadata, sanitize_filename};
+use crate::world::{WorldCommand, WorldRuntime};
 use axum::{
     extract::{Multipart, State},
     http::HeaderMap,
@@ -120,13 +121,7 @@ pub async fn upload_song(
         .await?;
 
     // 让引擎重扫媒体目录，否则空文件夹起服务时上传后引擎 play_queue 仍然是空的。
-    state
-        .player_handle
-        .send_command(radio_engine::types::AudioCommand {
-            cmd_type: radio_engine::types::AudioCommandType::ReloadQueue,
-            song_id: None,
-            file_path: None,
-        });
+    WorldRuntime::new(state.clone()).dispatch(WorldCommand::ReloadQueue);
 
     Ok(Json(ApiResponse::ok(format!(
         "上传成功: {}",

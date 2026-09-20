@@ -1,6 +1,7 @@
 //! Shared application state passed to Axum handlers.
 
 use crate::config::{AppConfig, StationConfig};
+use crate::world::WorldCommandDispatcher;
 use dashmap::DashMap;
 use radio_engine::player::PlayerHandle;
 use radio_engine::ring_buffer::RingBuffer;
@@ -25,6 +26,8 @@ pub struct AppState {
     pub ring_buffer: Arc<RingBuffer>,
     /// 音频引擎的播放器句柄（用于发送命令、获取状态）
     pub player_handle: PlayerHandle,
+    /// Logical Side command adapter used by background workers and routes.
+    pub world_commands: WorldCommandDispatcher,
     /// Serializes DB queue mutations with embedded-engine request queue updates.
     pub queue_sync: tokio::sync::Mutex<()>,
     /// 在线听众注册表 (device_token -> OnlineListener)
@@ -49,10 +52,11 @@ impl AppState {
         let (ws_tx, _) = tokio::sync::broadcast::channel(1024);
         let station = RwLock::new(config.station.clone());
         let metadata_revision_signal = Arc::new(AtomicU64::new(0));
+        let world_commands = WorldCommandDispatcher::new(player_handle.clone());
         let metadata_jobs = crate::services::metadata_jobs::MetadataJobManager::new(
             db.clone(),
             std::path::PathBuf::from(&config.audio_engine.media_path),
-            player_handle.clone(),
+            world_commands.clone(),
             metadata_revision_signal.clone(),
         )
         .await;
@@ -63,6 +67,7 @@ impl AppState {
             station,
             ws_tx,
             ring_buffer,
+            world_commands,
             player_handle,
             queue_sync: tokio::sync::Mutex::new(()),
             listeners: Arc::new(DashMap::new()),

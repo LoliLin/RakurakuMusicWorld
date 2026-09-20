@@ -2,7 +2,8 @@
 
 use crate::app::state::AppState;
 use crate::models::{LyricsLineDto, WsMessage};
-use crate::services::queue;
+use crate::world::WorldRuntime;
+use std::sync::Arc;
 
 struct CachedSong {
     db_song_id: i64,
@@ -42,7 +43,7 @@ impl PlaybackSnapshotCache {
     /// （Stage 2：只增事件，playback_state 契约不变）。
     pub(crate) async fn build_message(
         &mut self,
-        state: &AppState,
+        state: &Arc<AppState>,
         ps: &radio_engine::types::PlaybackState,
     ) -> (WsMessage, Option<WsMessage>) {
         self.refresh_on_song_change(state, ps).await;
@@ -141,7 +142,7 @@ impl PlaybackSnapshotCache {
 
     async fn refresh_on_song_change(
         &mut self,
-        state: &AppState,
+        state: &Arc<AppState>,
         ps: &radio_engine::types::PlaybackState,
     ) {
         // 切歌检测改用 file_path：playlist_index 对请求队列曲来说固定为 -1，
@@ -177,7 +178,10 @@ impl PlaybackSnapshotCache {
         };
 
         if song_changed {
-            if let Err(e) = queue::mark_playing(&state.db, db_song_id).await {
+            if let Err(e) = WorldRuntime::new(state.clone())
+                .mark_track_playing(db_song_id)
+                .await
+            {
                 tracing::error!("mark_playing failed for song {}: {}", db_song_id, e);
             }
         }

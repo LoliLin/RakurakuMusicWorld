@@ -3,7 +3,7 @@ use crate::app::state::AppState;
 use crate::error::AppError;
 use crate::models::ApiResponse;
 use crate::routes::admin::get_admin;
-use crate::websocket;
+use crate::world::{WorldCommand, WorldRuntime};
 use axum::{extract::State, http::HeaderMap, Json};
 use std::sync::Arc;
 
@@ -14,13 +14,7 @@ pub async fn skip_next(
 ) -> Result<Json<ApiResponse<String>>, AppError> {
     let _admin = get_admin(&state, &headers).await?;
 
-    let cmd = radio_engine::types::AudioCommand {
-        cmd_type: radio_engine::types::AudioCommandType::Skip,
-        song_id: None,
-        file_path: None,
-    };
-
-    websocket::publish_command(&state, &cmd).await?;
+    WorldRuntime::new(state.clone()).dispatch(WorldCommand::Skip);
 
     Ok(Json(ApiResponse::ok("已切到下一首".into())))
 }
@@ -32,13 +26,7 @@ pub async fn skip_prev(
 ) -> Result<Json<ApiResponse<String>>, AppError> {
     let _admin = get_admin(&state, &headers).await?;
 
-    let cmd = radio_engine::types::AudioCommand {
-        cmd_type: radio_engine::types::AudioCommandType::Prev,
-        song_id: None,
-        file_path: None,
-    };
-
-    websocket::publish_command(&state, &cmd).await?;
+    WorldRuntime::new(state.clone()).dispatch(WorldCommand::Prev);
 
     Ok(Json(ApiResponse::ok("已切到上一首".into())))
 }

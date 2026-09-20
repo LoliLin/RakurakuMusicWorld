@@ -3,7 +3,7 @@ use crate::app::state::AppState;
 use crate::auth;
 use crate::error::AppError;
 use crate::models::{AddToQueueRequest, ApiResponse, MoveQueueItemRequest, NowPlaying};
-use crate::services::queue;
+use crate::world::WorldRuntime;
 use axum::{
     extract::{Path, State},
     http::HeaderMap,
@@ -30,7 +30,7 @@ async fn get_queue(
         .await
         .map(|user| user.role == "admin")
         .unwrap_or(false);
-    let mut items = queue::get_queue_display(&state.db).await?;
+    let mut items = WorldRuntime::new(state.clone()).queue_display().await?;
     if !is_admin {
         for item in &mut items {
             item.requested_by = "匿名".into();
@@ -46,7 +46,9 @@ async fn add_to_queue(
     Json(req): Json<AddToQueueRequest>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let device = auth::require_device_auth(&headers, &state.db).await?;
-    let item_id = queue::add_to_queue(&state, req.song_id, device.id, &device.display_name).await?;
+    let item_id = WorldRuntime::new(state.clone())
+        .add_track(req.song_id, device.id, &device.display_name)
+        .await?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "queue_item_id": item_id,
@@ -63,7 +65,9 @@ async fn remove_queue_item(
     let device = auth::require_device_auth(&headers, &state.db).await?;
     auth::require_admin(&device)?;
 
-    queue::remove_queue_item(&state, item_id).await?;
+    WorldRuntime::new(state.clone())
+        .remove_track(item_id)
+        .await?;
 
     sqlx::query("INSERT INTO admin_log (admin_id, action, details) VALUES (?, 'remove_queue', ?)")
         .bind(device.id)
@@ -84,7 +88,9 @@ async fn move_queue_item(
     let device = auth::require_device_auth(&headers, &state.db).await?;
     auth::require_admin(&device)?;
 
-    queue::move_queue_item(&state, item_id, req.new_position).await?;
+    WorldRuntime::new(state.clone())
+        .move_track(item_id, req.new_position)
+        .await?;
 
     sqlx::query("INSERT INTO admin_log (admin_id, action, details) VALUES (?, 'move_queue', ?)")
         .bind(device.id)
@@ -106,7 +112,7 @@ async fn skip_current(
     let device = auth::require_device_auth(&headers, &state.db).await?;
     auth::require_admin(&device)?;
 
-    queue::skip_current(&state).await?;
+    WorldRuntime::new(state.clone()).skip_track().await?;
 
     sqlx::query("INSERT INTO admin_log (admin_id, action, details) VALUES (?, 'skip_track', 'Skipped current track')")
         .bind(device.id)
@@ -124,7 +130,7 @@ async fn get_history(
     let device = auth::require_device_auth(&headers, &state.db).await?;
     auth::require_admin(&device)?;
 
-    let history = queue::get_history(&state.db, 20).await?;
+    let history = WorldRuntime::new(state.clone()).history(20).await?;
     Ok(Json(ApiResponse::ok(history)))
 }
 

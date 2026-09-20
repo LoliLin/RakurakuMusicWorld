@@ -1,12 +1,13 @@
-//! World state model — Stage 1 of the Music World migration.
+//! World state model and Logical Side entry point.
 //!
-//! 蓝图（docs/MIGRATION.md Stage 1）：把散布在 engine `PlaybackState`、
-//! `queue_items` 表、`AppState.listeners` 中的"世界状态"翻译成统一的
-//! `WorldState` 视图。本模块是**纯翻译/聚合层**：不拥有权威状态、
-//! 不引入新字段、不改变任何现有行为。权威仍在原处：
-//! - playback 权威：`radio_engine::types::PlaybackState`（engine 500ms 发布）
-//! - playlist 权威：`queue_items` 表（`services/queue.rs`）
-//! - players 权威：`device_users` 表 + `AppState.listeners`（WS 在线注册表）
+//! Stage 1 introduced `WorldState` as a translation/aggregation view over
+//! the existing engine, SQLite, and listener authorities. Stage 3 adds
+//! `WorldRuntime`, the narrow Logical Side façade used by HTTP/background
+//! adapters. It does not duplicate state or create a second authority.
+//!
+//! The Integrated Physical Side still supplies `AppState`, SQLite, the
+//! embedded engine, and listener transport. The façade is intentionally
+//! small so later Physical Side extraction can replace those dependencies.
 use std::sync::Arc;
 
 use crate::app::state::AppState;
@@ -124,6 +125,112 @@ impl WorldState {
     }
 }
 
+/// Logical command 到 Integrated Physical audio executor 的最小适配器。
+///
+/// 后台 worker 可能只持有 `PlayerHandle` 等执行依赖，不能构造完整
+/// `WorldRuntime`；它们仍必须通过这个类型提交 World command。
+#[derive(Clone)]
+pub struct WorldCommandDispatcher {
+    player_handle: radio_engine::player::PlayerHandle,
+}
+
+impl WorldCommandDispatcher {
+    pub fn new(player_handle: radio_engine::player::PlayerHandle) -> Self {
+        Self { player_handle }
+    }
+
+    pub fn dispatch(&self, command: WorldCommand) {
+        self.player_handle
+            .send_command(radio_engine::types::AudioCommand {
+                cmd_type: command.into(),
+                song_id: None,
+                file_path: None,
+            });
+    }
+}
+
+/// Logical Side 的运行时入口。
+///
+/// `WorldRuntime` 只持有 Integrated Physical Side 提供的依赖，
+/// 对外暴露的是 World command/query，而不是 `PlayerHandle` 或
+/// `services::queue` 的实现细节。当前实现仍复用旧 service 和 engine；
+/// 这个边界让后续迁移可以先替换逻辑实现，再抽 Physical Side。
+#[derive(Clone)]
+pub struct WorldRuntime {
+    state: Arc<AppState>,
+}
+
+impl WorldRuntime {
+    pub fn new(state: Arc<AppState>) -> Self {
+        Self { state }
+    }
+
+    /// 聚合一次当前 World 快照。
+    pub async fn snapshot(&self) -> WorldState {
+        WorldState::snapshot(&self.state).await
+    }
+
+    /// 向 Physical Side 的播放执行器提交一个 World command。
+    pub fn dispatch(&self, command: WorldCommand) {
+        self.state.world_commands.dispatch(command);
+    }
+
+    /// 查询 Logical Side 的队列展示。
+    pub async fn queue_display(
+        &self,
+    ) -> Result<Vec<crate::models::QueueItemDisplay>, crate::error::AppError> {
+        crate::services::queue::get_queue_display(&self.state.db).await
+    }
+
+    /// 处理加入 World playlist 的请求。
+    pub async fn add_track(
+        &self,
+        song_id: i64,
+        device_user_id: i64,
+        display_name: &str,
+    ) -> Result<i64, crate::error::AppError> {
+        crate::services::queue::add_to_queue(&self.state, song_id, device_user_id, display_name)
+            .await
+    }
+
+    /// 处理管理员调整 World playlist 顺序的请求。
+    pub async fn move_track(
+        &self,
+        item_id: i64,
+        new_position: i32,
+    ) -> Result<(), crate::error::AppError> {
+        crate::services::queue::move_queue_item(&self.state, item_id, new_position).await
+    }
+
+    /// 处理管理员移除 World playlist 项目的请求。
+    pub async fn remove_track(&self, item_id: i64) -> Result<(), crate::error::AppError> {
+        crate::services::queue::remove_queue_item(&self.state, item_id).await
+    }
+
+    /// 处理管理员跳过当前曲目的请求。
+    pub async fn skip_track(&self) -> Result<(), crate::error::AppError> {
+        crate::services::queue::skip_current(&self.state).await
+    }
+
+    /// 查询 World 的最近播放历史。
+    pub async fn history(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<serde_json::Value>, crate::error::AppError> {
+        crate::services::queue::get_history(&self.state.db, limit).await
+    }
+
+    /// 把持久化 playlist 重新装入音频执行器的请求队列。
+    pub async fn rehydrate_playlist(&self) -> Result<(), crate::error::AppError> {
+        crate::services::queue::rehydrate_engine_queue(&self.state).await
+    }
+
+    /// 将当前播放曲目的状态回写到 World playlist。
+    pub async fn mark_track_playing(&self, song_id: i64) -> Result<(), crate::error::AppError> {
+        crate::services::queue::mark_playing(&self.state.db, song_id).await
+    }
+}
+
 /// World 命令枚举 —— Stage 1 只翻译现有 `AudioCommandType`，
 /// 不发明新命令（Seek 等留到有真实实现时再加）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -148,17 +255,6 @@ impl From<WorldCommand> for radio_engine::types::AudioCommandType {
             WorldCommand::ReloadQueue => radio_engine::types::AudioCommandType::ReloadQueue,
         }
     }
-}
-
-/// 把命令发给引擎执行器。等价于现有 `PlayerHandle::send_command` 路径，
-/// 只是收敛了入口（`websocket.rs:publish_command` 的同义封装）。
-pub fn execute(state: &AppState, cmd: WorldCommand) {
-    let audio = radio_engine::types::AudioCommand {
-        cmd_type: cmd.into(),
-        song_id: None,
-        file_path: None,
-    };
-    state.player_handle.send_command(audio);
 }
 
 /// 便捷：从最近一条 WS 广播消息提取当前播放视图（测试/调试用）。
