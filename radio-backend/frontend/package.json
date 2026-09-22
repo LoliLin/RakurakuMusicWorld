@@ -10,12 +10,18 @@
     "preview": "vite preview",
     "electron:dev": "node ../../electron/scripts/dev.mjs",
     "electron:build": "npm run build && electron-builder",
-    "electron:start": "node ../../electron/scripts/dev.mjs --no-server"
+    "electron:start": "node ../../electron/scripts/dev.mjs --no-server",
+    "desktop:package": "node scripts/build-desktop.mjs",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android"
   },
   "dependencies": {
     "@appica/icons-react": "1.0.0",
     "@appica/ui-react": "1.1.0",
     "@base-ui/react": "1.8.0",
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@material/material-color-utilities": "0.4.0",
     "clsx": "2.1.1",
     "react": "19.2.8",

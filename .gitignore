@@ -69,3 +69,14 @@ radio-backend/frontend/tsconfig.tsbuildinfo
 
 output/
 tmp/
+
+# Desktop & Android 构建产物
+dist-desktop/
+dist-android/
+electron/frontend/
+radio-backend/frontend/android/.gradle/
+radio-backend/frontend/android/build/
+radio-backend/frontend/android/app/build/
+radio-backend/frontend/android/local.properties
+radio-backend/frontend/android/app/src/main/assets/public/
+radio-backend/frontend/android/app/src/main/assets/capacitor.config.json

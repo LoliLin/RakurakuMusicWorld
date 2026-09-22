@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RakurakuMusicWorld</string>
+    <string name="title_activity_main">RakurakuMusicWorld</string>
+    <string name="package_name">in.kawaiis.RakurakuMusicWorld</string>
+    <string name="custom_url_scheme">in.kawaiis.RakurakuMusicWorld</string>
+</resources>
