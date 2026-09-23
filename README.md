@@ -2,33 +2,65 @@
 
 # RakurakuMusicWorld
 
-**把一台普通服务器变成大家都能点歌的社区电台。**
+**把一台普通设备变成所有人都能参与点歌、同步收听的音乐世界。**
 
-Rust 音频引擎、Web 后端与 React 前端打包在同一个服务里：一个端口即可提供网页、实时状态、同步歌词和连续 MP3 音频流。
+Rust 音频引擎、Web 后端、React 前端、Electron 桌面端与 Android 客户端统一架构：一个服务即可提供网页、实时状态、逐行歌词、连续 MP3 音频流以及局域网世界互联。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-2f6f5e.svg)](LICENSE)
 ![Rust](https://img.shields.io/badge/backend-Rust-de6b35.svg)
 ![React 19](https://img.shields.io/badge/frontend-React_19-149eca.svg)
 ![SQLite](https://img.shields.io/badge/database-SQLite-0f80cc.svg)
+![Electron](https://img.shields.io/badge/desktop-Electron-47848F.svg)
+![Android](https://img.shields.io/badge/mobile-Capacitor_Android-3DDC84.svg)
+[![CI](https://github.com/LoliLin/RakurakuMusicWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/LoliLin/RakurakuMusicWorld/actions/workflows/ci.yml)
 
-[在线体验](https://music.risnordev.org) · [快速安装](#快速开始) · [技术文档](docs/TECHNICAL.md) · [参与开发](docs/TECHNICAL.md#开发与验证)
+[快速开始](#快速开始) · [世界模型与多端架构](#minecraft-风格的世界模型) · [技术文档](docs/TECHNICAL.md) · [开发与构建](#构建与开发)
 
 </div>
 
 ![浅色播放器：封面、同步歌词、点歌队列与常驻播放条](docs/screenshots/player-light.png)
 
-> 在线实例由社区运营，当前曲目与服务状态会随时间变化。仓库截图来自本地演示实例，不包含线上访客或管理员数据。
+---
 
-## 它能做什么
+## 核心特性
 
-- **连续电台流**：`ffmpeg` 解码后写入共享环形缓冲，所有听众从 `/stream` 收听同一条实时 MP3 流。
-- **多人点歌**：浏览曲库即可加入队列；请求歌曲优先于目录轮播，管理员可以调整顺序、移除或切歌。
-- **实时同步**：WebSocket 每 500 ms 推送播放状态，浏览器平滑计算进度；断线时自动降级为 REST 轮询。
-- **同步歌词与封面**：扫描同名 `.lrc`、旁路封面或音频内嵌封面；切歌时发送完整歌词，后续只发送当前行。
-- **智能元数据补全**：优先读取本地标签；管理员还可匿名匹配网易云候选，为缺少专辑或封面的歌曲补全信息。
-- **免注册设备身份**：浏览器通过 httpOnly Cookie 获得设备身份，可改名、收藏和点歌；管理员使用部署令牌提权。
-- **完整管理面板**：歌曲扫描与上传、用户管理、播放历史、批量下载、网易云导入和电台品牌设置集中在设置页。
-- **适合自托管**：单 Rust 二进制、SQLite、单端口；支持反向代理、HTTPS、子路径部署和 PWA。
+- 📻 **连续电台流**：内置 Rust 音频引擎驱动 `ffmpeg` 解码与高质重采样，写入内存共享环形缓冲，所有听众从 `/stream` 收听同一条低延迟 MP3 流。
+- 🎶 **多人优先点歌**：浏览或搜索曲库即可点播歌曲；请求歌曲优先于基础轮播曲目，房主可自由切歌、调序与移出。
+- ⚡ **实时状态同步**：WebSocket 每 500 ms 广播播放进度与曲目元数据，前端平滑对其毫秒级时间戳；弱网或断线自动无缝降级为轮询。
+- 📝 **逐行歌词与动态封面**：自动扫描同名 `.lrc`、旁路封面或内嵌音频标签；切歌时全量同步，播放中平滑滚动。
+- 🔍 **智能元数据补全**：优先提取本地音频标签；缺少信息时可由房主一键匿名匹配网易云候选，为歌曲自动补齐封面与专辑名。
+- 👑 **极简玩家身份与安全模型**：
+  - **开箱即用**：无需繁琐的账号密码注册，玩家拥有独立的设备身份与昵称，随时随地行内一键快速改名。
+  - **本地用户即房主 (Host is Admin)**：基于底层操作系统内核 TCP 回环（Loopback）鉴权，本地主机访问者自动获得最高管理员权限 (OP)。
+  - **彻底杜绝远程提权**：彻底移除网络提权接口与令牌验证，远程或局域网访问者只能作为普通听众，杜绝被恶意侵入的风险。
+- 🌐 **多端覆盖**：
+  - **Web / PWA**：自适应桌面与移动端屏幕，支持深浅色与动态主题色推导。
+  - **Desktop (Electron)**：Windows / macOS / Linux 桌面客户端，启动时自动静默探测并拉起后台引擎（无黑框 Sidecar），数据独立存储。
+  - **Android (Capacitor)**：一键构建 APK 安装包，支持随身收听与局域网世界加入。
+
+---
+
+## Minecraft 风格的世界模型
+
+RakurakuMusicWorld 采用了类似 Minecraft 的“单人 / 局域网 / 多人服务器”交互设计：
+
+```
+                    ┌─────────────────────────┐
+                    │      世界选择与玩家设置      │
+                    └────────────┬────────────┘
+         ┌───────────────────────┼───────────────────────┐
+         ▼                       ▼                       ▼
+  🏠 本机单人世界           📡 局域网广播世界          🌐 多人直接连接
+ (Local Host World)        (LAN UDP Discovery)      (Direct Connect)
+ • 本机内置 Sidecar 运行    • 自动扫描局域网房间      • 输入 IP / 域名连接
+ • 本地用户即房主 (OP)       • 一键加入好友电台        • 自动保存最近历史
+```
+
+- **🏠 单人世界 (Singleplayer)**：运行在本地的独立音乐世界。桌面客户端双击即可自启动，本地用户自动拥有全部曲库管理、歌曲上传与电台配置权限。
+- **📡 局域网世界 (LAN Worlds)**：开启局域网广播后，同一 Wi-Fi 或局域网内的其它设备打开客户端，即可自动发现正在运行的电台房间，一键加入收听与点歌。
+- **🌐 直接连接 (Direct Connect)**：可输入任意远程公网服务器地址（如 `http://192.168.1.100:2241` 或自定义域名），快速加入多人电台。
+
+---
 
 ## 界面一览
 
@@ -42,54 +74,58 @@ Rust 音频引擎、Web 后端与 React 前端打包在同一个服务里：一�
 
 ![设置页：设备资料、主题模式与颜色选择](docs/screenshots/settings-theme.png)
 
-### 元数据是怎样补全的
-
-1. 入库时用 `ffprobe` 读取音频内的标题、艺术家、专辑和时长；缺失标题或艺术家时从文件名回退解析。
-2. 自动发现同名 `.lrc`、旁路图片和音频内嵌封面，并预热封面缓存。
-3. 管理员点击“补全元数据”后，后端匿名搜索网易云，仅处理缺少专辑或封面的曲目。
-4. 标题、艺术家和时长达到可信阈值后才写入匹配结果；远程封面只接受受信任的 HTTPS 域名，并限制为 10 MB。
-
-补全不会覆盖已有标题、艺术家或专辑。匹配来源与时间会写入 SQLite，避免重复查询。
+---
 
 ## 快速开始
 
-### 一行安装到 Linux
+### 方式 A：一键打包全部产物 (推荐)
 
-适用于带 `systemd` 的 Debian/Ubuntu、Arch Linux 和 Fedora。脚本安装构建与运行依赖、创建独立用户，并启用 `rakuraku-music-world` 服务。
+如果你在 Windows 环境下，只需运行仓库根目录的 `build_all.ps1`，即可一键自动打包 Web、服务端、桌面客户端以及 Android APK：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_all.ps1
+```
+
+构建完成后产物分布如下：
+- `dist/`：独立运行的单可执行程序发布包（包含静态网页与默认配置）。
+- `dist-desktop/`：免安装解压即用的桌面应用（`RakurakuMusicWorld.exe`）。
+- `dist-android/`：Android 手机安装包（`RakurakuMusicWorld-debug.apk`）。
+
+---
+
+### 方式 B：Linux 一行脚本安装
+
+适用于带 `systemd` 的 Debian/Ubuntu、Arch Linux 和 Fedora：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/LoliLin/RakurakuMusicWorld/main/install.sh | sudo bash
 ```
 
 安装完成后：
 
 ```bash
-# 首先修改管理员令牌和电台配置
-sudoedit /etc/rakuraku/config.toml
-
-# 放入音乐并重启；随后在网页管理面板执行“重新扫描”
+# 放入音乐文件（支持 mp3, flac, wav, ogg, m4a, aac 等）
 sudo cp /path/to/music/* /var/lib/rakuraku/media/
 sudo systemctl restart rakuraku-music-world
 
-# 查看运行日志
+# 查看实时运行日志
 journalctl -u rakuraku-music-world -f
 ```
 
-默认访问地址为 `http://服务器地址:2241`。可通过 `RAKURAKU_PORT`、`RAKURAKU_REF`、`RAKURAKU_INSTALL_DIR`、`RAKURAKU_DATA_DIR` 等环境变量调整安装位置和版本。
+默认访问地址为 `http://服务器地址:2241`。本地访问自动拥有管理员权限。
 
-### 从源码构建
+---
 
-需要 Rust toolchain、Node.js/npm、`ffmpeg` 和 `ffprobe`。
+### 方式 C：从源码构建服务端
+
+依赖工具：Rust (2021 edition)、Node.js (>= 20)、`ffmpeg` 与 `ffprobe`。
 
 ```bash
-git clone https://github.com/Risaly-Noroki-Dev-Club/RakurakuMusicWorld.git
+git clone https://github.com/LoliLin/RakurakuMusicWorld.git
 cd RakurakuMusicWorld
 
-# 类型检查并构建 React 前端，然后构建 Rust release 二进制和 dist/
+# Linux / macOS 下构建独立发布目录
 ./build_release.sh
-
-# 首次使用前修改 admin_setup_token
-$EDITOR dist/config.toml
 
 # 放入音乐并启动
 cp /path/to/music/* dist/media/
@@ -98,88 +134,79 @@ cd dist
 ```
 
 停止服务：
-
 ```bash
 cd dist && ./stop.sh
 ```
 
-`build_release.sh` 会保留已有的 `dist/media/`、`dist/data/` 和 `dist/config.toml`，因此重复构建不会覆盖音乐、数据库或配置。已确认静态资源是最新版本时可传入 `--skip-frontend`。
+---
 
-## 开发
+## 构建与开发
 
-### Web 开发
+### Web & API 本地开发
 
 ```bash
-# 终端 1：后端（需要 Rust toolchain、ffmpeg/ffprobe）
-cd radio-backend && cargo build && cargo run
+# 终端 1：启动 Rust 后端服务
+cd radio-backend && cargo run
 
-# 终端 2：前端 dev server（代理 /api /ws /stream 到 :2241）
+# 终端 2：启动 Vite 前端热重载开发服务器 (代理 /api, /ws, /stream 至 :2241)
 cd radio-backend/frontend && npm run dev
 ```
 
-### Electron 桌面开发
+### 桌面端开发与运行
 
 ```bash
-# 后端照常运行在 :2241，然后一条命令启动桌面壳 + 前端 dev server
-cd radio-backend/frontend && npm run electron:dev
+# 自动启动内置 Sidecar 并打开 Electron 窗口
+node electron/run-desktop.mjs
 ```
 
-脚本会启动 Vite、等待就绪后打开 Electron 窗口加载 `http://localhost:5173`。后端尚未运行时页面会提示网络错误，属正常现象。
+### Android 移动端构建
 
-### 桌面打包
-
-```bash
-cd radio-backend/frontend
-npm run electron:build
+```powershell
+# 需要提前安装 Android SDK (Platform 35, Build-Tools 35.0.0, Java 21)
+powershell -ExecutionPolicy Bypass -File .\build_android.ps1
 ```
 
-输出在 `radio-backend/frontend/release/`：Windows 为 NSIS 安装包（`RakurakuMusicWorld-Setup-*.exe`），Linux 为 AppImage 与 deb，macOS 为 dmg。应用 ID 为 `in.kawaiis.RakurakuMusicWorld`。
+---
 
-## 第一次使用
+## 页面与能力
 
-1. 打开 `http://localhost:2241`。浏览器会自动获得设备 Cookie，无需注册账号。
-2. 进入“设置”，在设备区域输入 `config.toml` 中的 `admin_setup_token` 获取管理员权限。
-3. 进入“设置 → 电台管理 → 歌曲”，执行“重新扫描”。
-4. 可选：执行“补全元数据”，为缺少专辑或封面的歌曲寻找可靠匹配。
-5. 回到曲库点歌。VLC、mpv 或 ffplay 也可直接打开 `http://localhost:2241/stream`。
-
-支持 MP3、FLAC、WAV、OGG、M4A 和 AAC。歌词文件应与音频同名，例如：
-
-```text
-Music/
-├── Artist - Song.flac
-├── Artist - Song.lrc
-└── cover.jpg
-```
-
-## 页面与管理
-
-| 页面 | 路径 | 内容 |
+| 页面 | 访问路径 | 核心能力 |
 | --- | --- | --- |
-| 播放器 | `/`、`/player` | 封面、同步歌词、在线听众、点歌队列和实时进度 |
-| 曲库 | `/library` | 搜索、点歌、本地收藏、封面与歌曲标签 |
-| 设置 | `/settings` | 设备名称、管理员提权、主题、通知和个人网易云账号 |
+| **播放器** | `/`、`/player` | 实时流播放、大唱片封面、逐行歌词高亮、在线听众列表、点歌队列与切歌 |
+| **曲库** | `/library` | 检索全部歌曲、快捷加入播放队列、本地收藏标记、歌曲元数据查看 |
+| **设置** | `/settings` | 玩家昵称快速修改、主题模式切换、种子色自定义、个人网易云账号绑定 |
+| **世界选择** | 顶部徽章点击呼出 | 本地单机世界回切、局域网世界 UDP 实时扫描与一键加入、远程服务器连接 |
 
-管理员会在设置页额外看到“电台管理”：
+本地房主（管理员）在设置中可进入**电台管理面板**：
+- **概览与统计**：曲目总数、听众趋势、播放统计与系统运行日志。
+- **歌曲管理**：批量上传（支持 100MB 拖拽）、在线试听、删除与全库重新扫描。
+- **元数据匹配**：全自动或单曲交互式网易云元数据比对、专辑封面及歌词补齐。
+- **批量下载**：网易云单曲/歌单异步抓取下载并自动入库。
+- **电台品牌配置**：站点名称、副标题、介绍与自定义 Favicon 图标上传。
 
-| 分区 | 能力 |
-| --- | --- |
-| 概览 | 统计、管理日志和播放历史 |
-| 歌曲 | 上传、试听、删除、重新扫描、补全元数据 |
-| 用户 | 设备列表、封禁/解封、提权/降权 |
-| 下载 | 网易云、网盘与 Spotify 链接批量任务及进度 |
-| 网易云 | 全局 Cookie、登录测试、歌单或单曲导入 |
-| 电台设置 | 名称、短名称、副标题、简介和站点图标 |
+---
 
-## 技术文档
+## 技术架构
 
-架构、完整配置、反向代理、子路径部署、API、开发命令和故障排查已整理到独立的 [技术文档](docs/TECHNICAL.md)，便于部署者和贡献者集中查阅。
+```
+RakurakuMusicWorld/
+├── radio-engine/          # 纯 Rust 音频引擎（无全局状态、单写多读环形缓冲、ffmpeg 解码管道）
+├── radio-backend/         # Axum 0.7 + SQLite 单二进制后端（REST API、WebSocket 状态广播、静态托管）
+│   └── frontend/          # React 19 + TypeScript + Tailwind v4 + Appica UI 单页应用
+├── electron/              # Electron 桌面端外壳（Sidecar 子进程自动调度、静默托盘生命周期）
+├── .github/workflows/     # GitHub Actions 跨平台 CI 工作流
+└── docs/                  # 技术设计细节、网络通信协议与世界模型文档
+```
+
+详细的技术选型与协议规范可参阅 [技术文档](docs/TECHNICAL.md) 与 [WORLD_MODEL.md](docs/WORLD_MODEL.md)。
+
+---
 
 ## License 与致谢
 
 本项目以 [MIT License](LICENSE) 发布。
 
-网易云相关实现参考 [Music163bot-Go](https://github.com/XiaoMengXinX/Music163bot-Go) 的 API 与 Eapi 思路，并在 Rust 中重写。感谢 [FFmpeg](https://ffmpeg.org/)、[Axum](https://github.com/tokio-rs/axum)、[React](https://react.dev/)、[Appica UI](https://appica.dev/)、[Vite](https://vite.dev/)、[Material Color Utilities](https://github.com/material-foundation/material-color-utilities) 与 [SQLx](https://github.com/launchbadge/sqlx)。
+网易云相关实现参考 [Music163bot-Go](https://github.com/XiaoMengXinX/Music163bot-Go) 的 API 思路并在 Rust 中重构。感谢 [FFmpeg](https://ffmpeg.org/)、[Axum](https://github.com/tokio-rs/axum)、[React](https://react.dev/)、[Appica UI](https://appica.dev/)、[Vite](https://vite.dev/)、[Capacitor](https://capacitorjs.com/)、[Electron](https://www.electronjs.org/) 与 [SQLx](https://github.com/launchbadge/sqlx)。
 
 灵感来源：《孤独摇滚！》中的伊地知虹夏。
 
@@ -193,7 +220,7 @@ Chinese Football 在《Win&Lose》的封底写过：
 >
 > 那么就祝贺自己还算清醒吧。我没有在与他人竞争之后迷失于虚荣，也没有在与自己竞争之后沉溺于情绪。
 >
->  只是我有时仍然会做梦，在其中一个梦里，我还没有抵达最终的结局。在某一个结局里，我最终成为了一个强大的人，而 Chinese Football 成为了中国摇滚的传奇。
+> 只是我有时仍然会做梦，在其中一个梦里，我还没有抵达最终的结局。在某一个结局里，我最终成为了一个强大的人，而 Chinese Football 成为了中国摇滚的传奇。
 
 对我来说，这个项目大概也是这样的心情。快要十八岁了，我还不是一个厉害的大人，也不敢说自己真的多么会写代码。这个项目里有许多求助、试错、重写、妥协和大模型留下的痕迹。
 
