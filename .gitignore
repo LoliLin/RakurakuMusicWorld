@@ -74,6 +74,8 @@ tmp/
 dist-desktop/
 dist-android/
 electron/frontend/
+electron/bin/
+electron/config.toml.example
 radio-backend/frontend/android/.gradle/
 radio-backend/frontend/android/build/
 radio-backend/frontend/android/app/build/

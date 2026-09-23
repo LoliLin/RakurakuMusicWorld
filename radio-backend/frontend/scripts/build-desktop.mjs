@@ -18,6 +18,24 @@ if (fs.existsSync(frontendDest)) {
 fs.cpSync(staticSrc, frontendDest, { recursive: true })
 console.log('[✓] Copied static frontend assets.')
 
+const binSrc = path.resolve(repoRoot, 'dist/radio-backend.exe')
+const electronBinDir = path.join(electronDir, 'bin')
+fs.mkdirSync(electronBinDir, { recursive: true })
+const electronBinDest = path.join(electronBinDir, 'radio-backend.exe')
+
+if (fs.existsSync(binSrc)) {
+  fs.copyFileSync(binSrc, electronBinDest)
+  console.log('[✓] Copied radio-backend.exe to electron/bin/')
+} else {
+  console.warn('[!] dist/radio-backend.exe not found, backend will not be bundled.')
+}
+
+const configSrc = path.resolve(repoRoot, 'radio-backend/config.toml.example')
+const electronConfigDest = path.join(electronDir, 'config.toml.example')
+if (fs.existsSync(configSrc)) {
+  fs.copyFileSync(configSrc, electronConfigDest)
+}
+
 console.log('[*] Packaging Electron desktop application with electron-builder...')
 try {
   const result = await builder.build({
@@ -36,6 +54,16 @@ try {
         'icon.ico',
         'icon.png',
         'frontend/**/*',
+      ],
+      extraResources: [
+        {
+          from: 'bin/radio-backend.exe',
+          to: 'bin/radio-backend.exe',
+        },
+        {
+          from: 'config.toml.example',
+          to: 'config.toml.example',
+        },
       ],
       win: {
         icon: 'icon.ico',
