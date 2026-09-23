@@ -53,10 +53,6 @@ export function setDisplayName(display_name: string): Promise<string> {
   return apiFetch<string>('/api/auth/name', { method: 'POST', body: JSON.stringify({ display_name }) })
 }
 
-export function claimAdmin(admin_setup_token: string): Promise<string> {
-  return apiFetch<string>('/api/auth/claim-admin', { method: 'POST', body: JSON.stringify({ admin_setup_token }) })
-}
-
 export function adminLogout(): Promise<unknown> {
   return apiFetch('/api/admin/logout', { method: 'POST' })
 }

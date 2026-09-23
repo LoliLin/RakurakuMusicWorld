@@ -19,6 +19,7 @@ import { appRoot, getCustomServerUrl, setCustomServerUrl } from '@/api/client'
 import { fetchDiscoveredWorlds, scanLanWorlds } from '@/api'
 import type { DiscoveredWorld } from '@/types'
 import { useStore } from '@/store'
+import { WorldSelectorDialog } from '@/components/layout/WorldSelectorDialog'
 
 interface TestResult {
   success: boolean
@@ -30,6 +31,7 @@ interface TestResult {
 export function ServerSection() {
   const currentStation = useStore((s) => s.station)
   const isWsConnected = useStore((s) => s.wsConnected)
+  const [worldSelectorOpen, setWorldSelectorOpen] = useState(false)
 
   const [customUrl, setCustomUrl] = useState('')
   const [testing, setTesting] = useState(false)
@@ -141,6 +143,14 @@ export function ServerSection() {
           服务器与世界连接
         </h2>
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="soft"
+            size="sm"
+            onClick={() => setWorldSelectorOpen(true)}
+          >
+            打开世界选择器
+          </Button>
           <Badge color={isCustom ? 'warning' : 'primary'}>
             {isCustom ? '远程 World' : '本地 / 默认'}
           </Badge>
@@ -297,6 +307,8 @@ export function ServerSection() {
           )}
         </div>
       </form>
+
+      <WorldSelectorDialog open={worldSelectorOpen} onOpenChange={setWorldSelectorOpen} />
     </section>
   )
 }

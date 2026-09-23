@@ -7,16 +7,6 @@ import {
   AlertTitle,
 } from '@appica/ui-react/alert'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogBody,
-  DialogFooter,
-  DialogClose,
-} from '@appica/ui-react/dialog'
-import {
   AlertDialog,
   AlertDialogClose,
   AlertDialogContent,
@@ -32,16 +22,16 @@ import { Input } from '@appica/ui-react/input'
 import { Spinner } from '@appica/ui-react/spinner'
 import {
   Check,
+  CrownFilled,
   DeviceMobile,
   InfoCircleFilled,
   LayoutDashboard,
   Logout,
   Pencil,
-  ShieldCheckFilled,
   UserFilled,
   X,
 } from '@appica/icons-react'
-import { adminLogout, claimAdmin, fetchMe, fetchStation, setDisplayName } from '@/api'
+import { adminLogout, fetchMe, setDisplayName } from '@/api'
 import { useStore } from '@/store'
 
 function toast(message: string, level: 'info' | 'success' | 'warning' | 'error' = 'info') {
@@ -50,64 +40,6 @@ function toast(message: string, level: 'info' | 'success' | 'warning' | 'error' 
 
 function errMsg(err: unknown): string {
   return err instanceof Error && err.message ? err.message : '操作失败，请重试'
-}
-
-/** 管理员提权：输入部署时生成的令牌，激活管理员身份。 */
-function ClaimAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [token, setToken] = useState('')
-  const [claiming, setClaiming] = useState(false)
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    const trimmed = token.trim()
-    if (!trimmed || claiming) return
-    setClaiming(true)
-    try {
-      await claimAdmin(trimmed)
-      const [me, st] = await Promise.all([fetchMe(), fetchStation()])
-      useStore.getState().setAuth(me)
-      useStore.getState().setStation(st)
-      setToken('')
-      onOpenChange(false)
-      toast('管理员身份已激活', 'success')
-    } catch (err) {
-      toast(errMsg(err), 'error')
-    } finally {
-      setClaiming(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:w-105">
-        <DialogHeader>
-          <DialogTitle>申请管理员</DialogTitle>
-          <DialogDescription>输入电台部署时生成的管理员令牌即可提权为管理员。</DialogDescription>
-        </DialogHeader>
-        <DialogBody>
-          <form id="claim-admin-form" onSubmit={submit} className="flex flex-col gap-3">
-            <Field name="admin_setup_token">
-              <FieldLabel>管理员令牌</FieldLabel>
-              <Input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                autoComplete="off"
-                placeholder="管理员令牌"
-              />
-            </Field>
-          </form>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline">取消</Button>} />
-          <Button type="submit" form="claim-admin-form" disabled={!token.trim() || claiming}>
-            {claiming ? <Spinner currentColor /> : <ShieldCheckFilled data-icon="start" />}
-            {claiming ? '验证中…' : '申请管理员'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
 }
 
 /** 设备命名/改名表单（setDisplayName 会创建设备并持久化）。 */
@@ -169,7 +101,6 @@ function DeviceIdentity() {
   const auth = useStore((s) => s.auth)
   const navigate = useNavigate()
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [claimOpen, setClaimOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const isAdmin = auth?.role === 'admin'
 
@@ -225,7 +156,7 @@ function DeviceIdentity() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <span className="bg-background-muted flex size-10 shrink-0 items-center justify-center rounded-full">
-          <UserFilled className="text-foreground-muted size-5" />
+          {isAdmin ? <CrownFilled className="text-primary size-5" /> : <UserFilled className="text-foreground-muted size-5" />}
         </span>
         {editing ? (
           <form onSubmit={saveName} className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -247,10 +178,10 @@ function DeviceIdentity() {
           </form>
         ) : (
           <div className="min-w-0">
-            <p className="text-foreground-intense truncate text-sm font-semibold">{auth?.display_name ?? '未命名设备'}</p>
+            <p className="text-foreground-intense truncate text-sm font-semibold">{auth?.display_name ?? '玩家'}</p>
             <Badge variant={isAdmin ? 'primary' : 'soft'} size="xs" className="mt-0.5">
-              {isAdmin ? <ShieldCheckFilled /> : <UserFilled />}
-              {isAdmin ? '管理员' : '普通用户'}
+              {isAdmin ? <CrownFilled /> : <UserFilled />}
+              {isAdmin ? '👑 房主 (本地管理员)' : '普通玩家 (听众)'}
             </Badge>
           </div>
         )}
@@ -258,11 +189,6 @@ function DeviceIdentity() {
           <Button variant="ghost" size="icon-sm" aria-label="改名" onClick={startEdit}>
             <Pencil />
           </Button>
-          {!isAdmin && (
-            <Button variant="ghost" size="icon-sm" aria-label="申请管理员" onClick={() => setClaimOpen(true)}>
-              <ShieldCheckFilled />
-            </Button>
-          )}
         </div>
       </div>
 
@@ -278,8 +204,6 @@ function DeviceIdentity() {
           </Button>
         </div>
       )}
-
-      <ClaimAdminDialog open={claimOpen} onOpenChange={setClaimOpen} />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

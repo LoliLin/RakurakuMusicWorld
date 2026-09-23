@@ -140,6 +140,7 @@ export interface AuthUser {
   id: number
   display_name: string
   role: 'admin' | 'user'
+  is_local?: boolean
 }
 
 export interface AdminUser {

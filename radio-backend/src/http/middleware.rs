@@ -44,6 +44,31 @@ pub async fn device_cookie_middleware(
         None
     };
 
+    // 检查请求是否来自本机回环地址（本地房主/OP判定）
+    let is_loopback = request
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0.ip().is_loopback())
+        .unwrap_or(false);
+
+    let is_really_local = is_loopback && {
+        if let Some(forwarded) = request.headers().get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+            forwarded.split(',').all(|ip_str| {
+                ip_str.trim().parse::<std::net::IpAddr>().map(|ip| ip.is_loopback()).unwrap_or(false)
+            })
+        } else {
+            true
+        }
+    };
+
+    // 若为本机回环访问 /api/*，自动确保该设备令牌在数据库中登记为最高管理员（房主）。
+    let effective_token_str = new_token.as_deref().or(device_token.as_deref()).map(|s| s.to_string());
+    if is_really_local && request.uri().path().starts_with("/api") {
+        if let Some(token) = &effective_token_str {
+            let _ = crate::auth::ensure_local_admin(&state.db, token).await;
+        }
+    }
+
     let mut response = next.run(request).await;
 
     if let Some(new_token) = new_token.as_ref() {

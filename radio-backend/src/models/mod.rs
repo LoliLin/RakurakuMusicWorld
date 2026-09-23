@@ -234,12 +234,6 @@ pub struct SetDisplayNameRequest {
     pub display_name: String,
 }
 
-/// 申请管理员身份的请求
-#[derive(Debug, Deserialize)]
-pub struct ClaimAdminRequest {
-    pub admin_setup_token: String,
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct NowPlaying {
     pub song: Option<SongSummary>,

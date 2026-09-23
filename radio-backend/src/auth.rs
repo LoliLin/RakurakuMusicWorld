@@ -159,66 +159,39 @@ pub async fn optional_device_auth(headers: &HeaderMap, db: &SqlitePool) -> Optio
     lookup_device_user(db, &device_token).await.ok().flatten()
 }
 
-/// 验证 admin_setup_token 并将当前设备升级为管理员。
-pub async fn claim_admin(
-    db: &SqlitePool,
-    device_token: &str,
-    setup_token: &str,
-    configured_token: &str,
-) -> Result<AuthUser, AppError> {
-    // 防暴力破解：连续失败达到阈值后全局锁定提权一段时间。
-    // 提权不是高频操作，全局锁不会误伤正常使用。
-    const MAX_FAILURES: u64 = 5;
-    const LOCK_SECS: i64 = 300;
-
-    let now = chrono::Utc::now().timestamp();
-    let lock_until = CLAIM_LOCK_UNTIL.load(std::sync::atomic::Ordering::Relaxed);
-    if now < lock_until {
-        return Err(AppError::RateLimited(format!(
-            "Too many failed admin attempts, try again in {} seconds",
-            lock_until - now
-        )));
-    }
-
-    if configured_token.is_empty() {
-        return Err(AppError::Forbidden(
-            "Admin setup is disabled: no admin_setup_token configured".into(),
-        ));
-    }
-    if setup_token != configured_token {
-        let failures = CLAIM_FAILURES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-        if failures >= MAX_FAILURES {
-            CLAIM_FAILURES.store(0, std::sync::atomic::Ordering::Relaxed);
-            CLAIM_LOCK_UNTIL.store(now + LOCK_SECS, std::sync::atomic::Ordering::Relaxed);
-            return Err(AppError::RateLimited(format!(
-                "Too many failed admin attempts, try again in {} seconds",
-                LOCK_SECS
-            )));
+/// 针对本地主机（Loopback 回路请求）确保其拥有管理员角色（OP/房主）。
+/// 若不存在则以 display_name = "房主", role = "admin" 插入；
+/// 若已存在但 role != "admin"，则自动提升为 admin。
+pub async fn ensure_local_admin(db: &SqlitePool, device_token: &str) -> Result<AuthUser, AppError> {
+    match lookup_device_user(db, device_token).await? {
+        Some(mut user) => {
+            if user.role != "admin" {
+                sqlx::query("UPDATE device_users SET role = 'admin' WHERE id = ?")
+                    .bind(user.id)
+                    .execute(db)
+                    .await?;
+                user.role = "admin".into();
+            }
+            Ok(user)
         }
-        return Err(AppError::Forbidden("Invalid admin setup token".into()));
+        None => {
+            let result = sqlx::query(
+                "INSERT INTO device_users (device_token, display_name, role) VALUES (?, '房主', 'admin')"
+            )
+            .bind(device_token)
+            .execute(db)
+            .await?;
+
+            let id = result.last_insert_rowid();
+            Ok(AuthUser {
+                id,
+                display_name: "房主".into(),
+                role: "admin".into(),
+                device_token: device_token.to_string(),
+            })
+        }
     }
-
-    // 成功：重置失败计数。
-    CLAIM_FAILURES.store(0, std::sync::atomic::Ordering::Relaxed);
-
-    let user = ensure_device_user(db, device_token).await?;
-
-    sqlx::query("UPDATE device_users SET role = 'admin' WHERE id = ?")
-        .bind(user.id)
-        .execute(db)
-        .await?;
-
-    Ok(AuthUser {
-        id: user.id,
-        display_name: user.display_name.clone(),
-        role: "admin".into(),
-        device_token: user.device_token.clone(),
-    })
 }
-
-/// claim_admin 暴力尝试防护状态（进程内）。
-static CLAIM_FAILURES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-static CLAIM_LOCK_UNTIL: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 #[cfg(test)]
 mod tests {

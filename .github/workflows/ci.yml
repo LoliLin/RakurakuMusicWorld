@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  frontend:
+    name: Frontend Build & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: radio-backend/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: radio-backend/frontend
+        run: npm ci
+
+      - name: Type check and build frontend
+        working-directory: radio-backend/frontend
+        run: npm run build
+
+  backend:
+    name: Backend Check & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            radio-backend -> radio-backend/target
+            radio-engine -> radio-engine/target
+
+      - name: Check radio-engine
+        working-directory: radio-engine
+        run: cargo check
+
+      - name: Test radio-engine
+        working-directory: radio-engine
+        run: cargo test
+
+      - name: Check radio-backend
+        working-directory: radio-backend
+        run: cargo check
+
+      - name: Test radio-backend
+        working-directory: radio-backend
+        run: cargo test

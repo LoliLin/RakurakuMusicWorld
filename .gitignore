@@ -1,5 +1,7 @@
 # 编译输出和分发目录
 dist/
+dist-desktop/
+dist-android/
 *.o
 *.d
 *.so
@@ -33,19 +35,23 @@ test.*
 *~
 opencode.json
 
-# 项目配置和文档
+# 系统文件
 .DS_Store
 Thumbs.db
 
-# 媒体文件目录
+# 媒体文件与数据库
 media/
 media_backup/
+*.db
+*.db-shm
+*.db-wal
 
 # Python缓存
 __pycache__/
 
-# Node.js / Vite 前端
-radio-backend/frontend/node_modules/
+# Node.js / 前端
+**/node_modules/
+radio-backend/frontend/tsconfig.tsbuildinfo
 
 # 会话和临时文件
 *.tmp
@@ -62,23 +68,22 @@ radio-backend/.migration_hash
 
 # 发布压缩包
 *.tar.gz
+*.zip
 
 # 迁移遗留产物
 RakurakuMusicWorld/
-radio-backend/frontend/tsconfig.tsbuildinfo
-
 output/
 tmp/
 
-# Desktop & Android 构建产物
-dist-desktop/
-dist-android/
+# Electron 运行期构建镜像
 electron/frontend/
 electron/bin/
 electron/config.toml.example
-radio-backend/frontend/android/.gradle/
-radio-backend/frontend/android/build/
-radio-backend/frontend/android/app/build/
-radio-backend/frontend/android/local.properties
+
+# Android & Gradle
+**/.gradle/
+**/build/
+**/local.properties
 radio-backend/frontend/android/app/src/main/assets/public/
 radio-backend/frontend/android/app/src/main/assets/capacitor.config.json
+

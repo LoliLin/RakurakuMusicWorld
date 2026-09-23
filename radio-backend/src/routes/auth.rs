@@ -1,34 +1,55 @@
 use crate::app::state::AppState;
-/// 设备认证路由：获取当前设备信息、设置显示名称、申请管理员。
+/// 设备认证路由：获取当前设备身份、设置显示名称。
 use crate::auth;
 use crate::error::AppError;
-use crate::models::{ApiResponse, ClaimAdminRequest, SetDisplayNameRequest};
+use crate::models::{ApiResponse, SetDisplayNameRequest};
 use axum::{
-    extract::State,
+    extract::{ConnectInfo, State},
     http::HeaderMap,
     routing::{get, post},
     Json, Router,
 };
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 pub fn auth_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/me", get(get_me))
         .route("/name", post(set_display_name))
-        .route("/claim-admin", post(claim_admin))
 }
 
-/// GET /api/auth/me — 获取当前设备信息
+/// GET /api/auth/me — 获取当前设备信息。
+/// 本地回环（127.0.0.1）访问者自动确认为房主/管理员（OP）；
+/// 远程连接者自动确认为普通玩家/听众。
 async fn get_me(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = auth::lookup_device_auth(&headers, &state.db).await?;
+    let device_token = auth::extract_device_token(&headers).ok_or(AppError::Unauthorized)?;
+
+    let is_loopback = addr.ip().is_loopback();
+    let is_really_local = is_loopback && {
+        if let Some(forwarded) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+            forwarded.split(',').all(|ip_str| {
+                ip_str.trim().parse::<std::net::IpAddr>().map(|ip| ip.is_loopback()).unwrap_or(false)
+            })
+        } else {
+            true
+        }
+    };
+
+    let user = if is_really_local {
+        auth::ensure_local_admin(&state.db, &device_token).await?
+    } else {
+        auth::ensure_device_user(&state.db, &device_token).await?
+    };
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "id": user.id,
         "display_name": user.display_name,
         "role": user.role,
+        "is_local": is_really_local,
     }))))
 }
 
@@ -60,23 +81,4 @@ async fn set_display_name(
         "Display name set to '{}'",
         name
     ))))
-}
-
-/// POST /api/auth/claim-admin — 使用管理员设置令牌升级为管理员
-async fn claim_admin(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(req): Json<ClaimAdminRequest>,
-) -> Result<Json<ApiResponse<String>>, AppError> {
-    let device_token = auth::extract_device_token(&headers).ok_or(AppError::Unauthorized)?;
-
-    auth::claim_admin(
-        &state.db,
-        &device_token,
-        &req.admin_setup_token,
-        &state.config.device.admin_setup_token,
-    )
-    .await?;
-
-    Ok(Json(ApiResponse::ok("Admin privileges granted".into())))
 }

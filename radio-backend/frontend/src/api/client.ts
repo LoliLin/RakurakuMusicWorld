@@ -2,6 +2,7 @@ import type { ApiResponse } from '@/types'
 
 const SERVER_URL_KEY = 'rakuraku.server_url'
 const DEVICE_TOKEN_KEY = 'rakuraku.device_token'
+const RECENT_WORLDS_KEY = 'rakuraku.recent_worlds'
 
 export function getCustomServerUrl(): string {
   if (typeof window === 'undefined') return ''
@@ -13,8 +14,53 @@ export function setCustomServerUrl(url: string | null): void {
   if (!url || !url.trim()) {
     localStorage.removeItem(SERVER_URL_KEY)
   } else {
-    localStorage.setItem(SERVER_URL_KEY, url.trim().replace(/\/+$/, ''))
+    const clean = url.trim().replace(/\/+$/, '')
+    localStorage.setItem(SERVER_URL_KEY, clean)
+    addRecentWorld(clean)
   }
+}
+
+export function isLocalWorld(): boolean {
+  const custom = getCustomServerUrl()
+  if (!custom) {
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') return true
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) return true
+    return false
+  }
+  try {
+    const parsed = new URL(custom)
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
+  } catch {
+    return false
+  }
+}
+
+export function getRecentWorlds(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(RECENT_WORLDS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function addRecentWorld(url: string): void {
+  if (typeof window === 'undefined') return
+  const clean = url.trim().replace(/\/+$/, '')
+  if (!clean) return
+  const list = getRecentWorlds().filter((u) => u !== clean)
+  list.unshift(clean)
+  localStorage.setItem(RECENT_WORLDS_KEY, JSON.stringify(list.slice(0, 8)))
+}
+
+export function removeRecentWorld(url: string): void {
+  if (typeof window === 'undefined') return
+  const clean = url.trim().replace(/\/+$/, '')
+  const list = getRecentWorlds().filter((u) => u !== clean)
+  localStorage.setItem(RECENT_WORLDS_KEY, JSON.stringify(list))
 }
 
 export function getStoredDeviceToken(): string | null {
