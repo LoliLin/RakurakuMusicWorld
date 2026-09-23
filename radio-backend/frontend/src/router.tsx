@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, createHashRouter } from 'react-router-dom'
 import App from './App'
 import PlayerPage from './pages/PlayerPage'
 import LibraryPage from './pages/LibraryPage'
@@ -10,7 +10,10 @@ import ErrorPage from './pages/ErrorPage'
  * shared queue); admin capabilities live inline — skip/remove in the player
  * and queue, the rest under Settings → 电台管理.
  */
-export const router = createBrowserRouter(
+const isFile = typeof window !== 'undefined' && window.location.protocol === 'file:'
+const createRouter = isFile ? createHashRouter : createBrowserRouter
+
+export const router = createRouter(
   [
     {
       path: '/',
@@ -24,5 +27,5 @@ export const router = createBrowserRouter(
       ],
     },
   ],
-  { basename: import.meta.env.BASE_URL.replace(/\/$/, '') },
+  isFile ? {} : { basename: import.meta.env.BASE_URL.replace(/\/$/, '') },
 )

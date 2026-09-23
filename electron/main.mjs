@@ -45,10 +45,18 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
+      sandbox: false,
+      webSecurity: false,
       spellcheck: false,
     },
+  })
+
+  win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[renderer ${level}] ${message} (${sourceId}:${line})`)
+  })
+
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[main] Failed to load URL: ${validatedURL}, error: ${errorCode} - ${errorDescription}`)
   })
 
   win.once('ready-to-show', () => win.show())

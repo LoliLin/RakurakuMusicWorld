@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:2241'
-const base = process.env.VITE_BASE_PATH || '/'
+const base = process.env.VITE_BASE_PATH || './'
 
 export default defineConfig({
   base,
