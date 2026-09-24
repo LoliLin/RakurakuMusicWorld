@@ -93,8 +93,8 @@ export function AppearanceSection() {
   const pickSeed = (seed: string) => useStore.getState().setAccent(dynamicAccent(seed))
 
   return (
-    <section aria-labelledby="settings-appearance-heading" className="rounded-2xl border border-border-muted bg-background-subtle p-4 sm:p-5">
-      <h2 id="settings-appearance-heading" className="mb-4 flex items-center gap-2 text-base font-semibold">
+    <section aria-labelledby="settings-appearance-heading" className="app-panel p-4 sm:p-6">
+      <h2 id="settings-appearance-heading" className="app-section-title mb-4 flex items-center gap-2">
         <Palette data-icon="start" />
         外观
       </h2>

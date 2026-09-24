@@ -24,6 +24,8 @@ export function SongSearch() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   // 300ms 防抖。
   useEffect(() => {
@@ -35,17 +37,17 @@ export function SongSearch() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setError(null)
     searchSongs(debounced, PAGE_SIZE, 0)
       .then((res) => {
         if (cancelled) return
         setSongs(res.data)
         setTotal(res.total)
+        setError(null)
       })
       .catch((e) => {
         if (cancelled) return
-        setSongs([])
-        setTotal(0)
-        addToast(errorMessage(e), 'error')
+        setError(errorMessage(e))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -53,7 +55,7 @@ export function SongSearch() {
     return () => {
       cancelled = true
     }
-  }, [debounced, addToast])
+  }, [debounced, retryKey])
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return
@@ -72,7 +74,7 @@ export function SongSearch() {
   const hasMore = songs.length < total
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={query}
@@ -84,8 +86,15 @@ export function SongSearch() {
           onClear={() => setQuery('')}
           className="w-full sm:max-w-90"
         />
-        <span className="text-foreground-muted text-xs tabular-nums">共 {total} 首</span>
+        <span className="text-foreground-muted text-sm tabular-nums">共 {total} 首</span>
       </div>
+
+      {error && (
+        <div className="app-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3" role="alert">
+          <p className="text-error text-sm">曲库加载失败：{error}{songs.length > 0 ? '。以下显示上次结果。' : ''}</p>
+          <Button variant="outline" size="sm" onClick={() => setRetryKey((key) => key + 1)}>重试</Button>
+        </div>
+      )}
 
       {loading ? (
         <ul aria-label="歌曲列表" className="divide-border-muted divide-y overflow-hidden rounded-xl border border-border-muted bg-background">
@@ -99,7 +108,7 @@ export function SongSearch() {
             </li>
           ))}
         </ul>
-      ) : songs.length === 0 ? (
+      ) : error && songs.length === 0 ? null : songs.length === 0 ? (
         <p className="text-foreground-muted py-10 text-center text-sm">
           {debounced ? '没有找到匹配的歌曲' : '曲库还是空的'}
         </p>
@@ -113,7 +122,7 @@ export function SongSearch() {
         </ul>
       )}
 
-      {hasMore && (
+      {hasMore && !error && (
         <Button variant="outline" size="sm" className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
           {loadingMore ? <Spinner className="size-4" currentColor /> : null}
           加载更多

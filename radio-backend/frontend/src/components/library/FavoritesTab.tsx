@@ -10,7 +10,7 @@ export function FavoritesTab() {
     return (
       <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border-muted bg-background-subtle/40 px-6 py-14 text-center">
         <Heart className="text-foreground-subtle size-10" aria-hidden="true" />
-        <p className="text-foreground-muted text-sm">还没有收藏，点击歌曲旁的 ♥ 即可收藏</p>
+        <p className="text-foreground-muted text-sm">还没有收藏。在曲库歌曲右侧点击爱心即可收藏。</p>
       </div>
     )
   }

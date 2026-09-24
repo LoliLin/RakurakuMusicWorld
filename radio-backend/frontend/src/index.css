@@ -38,6 +38,9 @@
     'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --app-content-width: 80rem;
+  --app-section-radius: 12px;
+  --app-control-radius: 8px;
 }
 
 /* ─── Base layout ─────────────────────────────────────────────────── */
@@ -60,6 +63,53 @@ body {
   overflow: auto;
 }
 
+/* Shared visual language for every application surface. */
+.app-page {
+  width: min(100%, var(--app-content-width));
+  margin-inline: auto;
+  padding: 24px;
+}
+
+.app-panel {
+  border: 1px solid var(--border-muted);
+  border-radius: var(--app-section-radius);
+  background: var(--background-subtle);
+}
+
+.app-page-title {
+  color: var(--foreground-intense);
+  font-size: clamp(1.5rem, 2vw, 1.875rem);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.app-section-title {
+  color: var(--foreground-intense);
+  font-size: 1.125rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.app-eyebrow {
+  color: var(--foreground-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.app-interactive:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .app-page {
+    padding: 16px;
+  }
+}
+
 /* Thin scrollbars that follow the theme */
 ::-webkit-scrollbar {
   width: 8px;
@@ -78,15 +128,17 @@ body {
 
 /* Lyrics highlight */
 .lyrics-active {
-  color: var(--foreground-intense);
-  transform: scale(1.02);
-  transition:
-    color 300ms ease,
-    transform 300ms ease;
+  color: var(--primary);
+  transition: color 300ms ease;
 }
 .lyrics-inactive {
   color: var(--foreground-muted);
-  transition:
-    color 300ms ease,
-    transform 300ms ease;
+  transition: color 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyrics-active,
+  .lyrics-inactive {
+    transition: none;
+  }
 }

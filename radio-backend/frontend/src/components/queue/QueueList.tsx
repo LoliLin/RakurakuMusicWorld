@@ -9,17 +9,11 @@ import {
   AlertDialogFooter,
   AlertDialogClose,
 } from '@appica/ui-react/alert-dialog'
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-} from '@appica/ui-react/context-menu'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@appica/ui-react/dropdown-menu'
 import { Badge } from '@appica/ui-react/badge'
 import { Button } from '@appica/ui-react/button'
 import { Skeleton } from '@appica/ui-react/skeleton'
-import { Library, Loader, Music, Trash } from '@appica/icons-react'
+import { ChevronDown, Library, Loader, Music, Trash } from '@appica/icons-react'
 import { fetchQueue, moveQueueItem, removeQueueItem, coverUrl } from '@/api'
 import { SongArtwork } from '@/components/SongArtwork'
 import { loadSongIndex, resolveSong } from '@/lib/songIndex'
@@ -58,6 +52,7 @@ export function QueueList({ items, onChanged }: QueueListProps) {
   const [indexReady, setIndexReady] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<QueueItemDisplay | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [error, setError] = useState(false)
 
   // 兜底：后端尚未部署真实 song.id 修复时（id 恒为 0），按 title|artist
   // 从曲库索引解析真实 id 以加载封面；新后端 id>0 时 resolveSong 直接返回。
@@ -95,8 +90,8 @@ export function QueueList({ items, onChanged }: QueueListProps) {
 
   const refresh = () => {
     void fetchQueue()
-      .then((q) => useStore.getState().setQueue(q))
-      .catch(() => useStore.getState().addToast('刷新队列失败', 'error'))
+      .then((q) => { useStore.getState().setQueue(q); setError(false) })
+      .catch(() => { setError(true); useStore.getState().addToast('刷新队列失败', 'error') })
       .finally(() => onChanged?.())
   }
 
@@ -151,6 +146,7 @@ export function QueueList({ items, onChanged }: QueueListProps) {
   }
 
   if (queue.length === 0) {
+    if (error) return <div className="app-panel flex flex-wrap items-center justify-between gap-3 p-5" role="alert"><p className="text-error text-sm">队列加载失败，请检查连接。</p><Button variant="outline" size="sm" onClick={refresh}>重试</Button></div>
     return (
       <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border-muted bg-background-subtle/40 px-6 py-14 text-center">
         <Music className="text-foreground-muted size-10" aria-hidden="true" />
@@ -165,6 +161,7 @@ export function QueueList({ items, onChanged }: QueueListProps) {
 
   return (
     <>
+      {error && <div className="app-panel mb-3 flex flex-wrap items-center justify-between gap-3 p-3" role="alert"><p className="text-error text-sm">无法刷新队列，以下显示上次结果。</p><Button variant="outline" size="sm" onClick={refresh}>重试</Button></div>}
       <ul
         aria-label="点歌队列"
         className="divide-border-muted divide-y overflow-hidden rounded-xl border border-border-muted bg-background"
@@ -178,55 +175,57 @@ export function QueueList({ items, onChanged }: QueueListProps) {
           const realSong = indexReady ? resolveSong(item.song) : null
           const artworkSong = realSong ?? item.song
           return (
-            <li key={item.id} className="flex items-center gap-3 px-3 py-3 sm:px-4">
-              <span className="text-foreground-muted w-6 shrink-0 text-center text-xs font-medium tabular-nums">
-                {item.position}
-              </span>
-              <ContextMenu>
-                <ContextMenuTrigger className="flex min-w-0 flex-1 items-center gap-3">
-                  <SongArtwork
-                    hasCover={artworkSong?.has_cover ?? false}
-                    coverSrc={artworkSong && artworkSong.id > 0 ? coverUrl(artworkSong.id, artworkSong.metadata_revision) : undefined}
-                    size="sm"
-                    className="shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-foreground-intense truncate text-sm font-medium">{itemTitle(item)}</p>
-                    {secondary && <p className="text-foreground-muted truncate text-xs">{secondary}</p>}
-                    <p className="text-foreground-subtle truncate text-xs">
-                      {formatDateTime(item.added_at)}
-                      {requester && ` · ${requester}`}
-                    </p>
-                  </div>
-                  <Badge variant={meta.variant} size="sm" className="shrink-0">
-                    {meta.label}
-                  </Badge>
-                </ContextMenuTrigger>
+            <li key={item.id} className="px-3 py-3 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="text-foreground-muted w-4 shrink-0 text-center text-xs font-medium tabular-nums">{item.position}</span>
+                <SongArtwork
+                  hasCover={artworkSong?.has_cover ?? false}
+                  coverSrc={artworkSong && artworkSong.id > 0 ? coverUrl(artworkSong.id, artworkSong.metadata_revision) : undefined}
+                  size="sm"
+                  className="shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-foreground-intense truncate text-sm font-semibold" title={itemTitle(item)}>{itemTitle(item)}</p>
+                  {secondary && <p className="text-foreground-muted truncate text-xs">{secondary}</p>}
+                </div>
+              </div>
+              <div className="mt-2 flex min-w-0 items-center justify-between gap-2 ps-7">
+                <p className="text-foreground-muted min-w-0 truncate text-xs">
+                  {requester ? `点歌人 ${requester}` : formatDateTime(item.added_at)}
+                </p>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Badge variant={meta.variant} size="sm">{meta.label}</Badge>
                 {isAdmin && (
-                  <ContextMenuContent className="w-40">
-                    <ContextMenuItem
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button variant="ghost" size="sm" aria-label={`管理 ${itemTitle(item)}`} />}>
+                      管理 <ChevronDown data-icon="end" className="size-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem
                       disabled={busyId !== null || index === 0}
                       onClick={() => void handleMove(item, -1)}
                     >
                       上移
-                    </ContextMenuItem>
-                    <ContextMenuItem
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       disabled={busyId !== null || index === queue.length - 1}
                       onClick={() => void handleMove(item, 1)}
                     >
                       下移
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
                       className="text-error-emphasis! data-highlighted:before:bg-error-subtle!"
                       onClick={() => setRemoveTarget(item)}
                     >
                       <Trash data-icon="start" />
                       移除
-                    </ContextMenuItem>
-                  </ContextMenuContent>
+                    </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-              </ContextMenu>
+                </div>
+              </div>
             </li>
           )
         })}
