@@ -6,12 +6,12 @@ export function MainNav() {
   const location = useLocation()
 
   const items = [
-    { to: '/player', label: '播放器', icon: Music },
+    { to: '/player', label: '播放', icon: Music },
     { to: '/library', label: '曲库', icon: Library },
-    { to: '/settings', label: '设置', icon: Settings },
+    { to: '/settings', label: '我的', icon: Settings },
   ]
 
-  const activeFor = (to: string) => location.pathname === to || location.pathname.startsWith(`${to}/`)
+  const activeFor = (to: string) => (to === '/player' && location.pathname === '/') || location.pathname === to || location.pathname.startsWith(`${to}/`)
 
   return (
     <div className="min-w-0">
@@ -22,7 +22,7 @@ export function MainNav() {
               <NavigationLink
                 render={<NavLink to={to} />}
                 active={activeFor(to)}
-                className="whitespace-nowrap"
+                className="min-h-11 whitespace-nowrap"
               >
                 <Icon data-icon="start" />
                 {label}

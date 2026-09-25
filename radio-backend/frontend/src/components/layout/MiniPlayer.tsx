@@ -8,7 +8,7 @@ import { SongArtwork } from '@/components/SongArtwork'
 import { useStore } from '@/store'
 import { usePlaybackClock } from '@/hooks/usePlaybackClock'
 import { formatTime } from '@/lib/format'
-import { isAudioPlaying, pauseAudio, resumeAudio, setAudioVolume } from '@/audio/streamAudio'
+import { pauseAudio, resumeAudio, setAudioVolume } from '@/audio/streamAudio'
 import { adminSkipNext, adminSkipPrev } from '@/api'
 
 /** Docked bottom player bar: transport (play/pause + admin skip) + volume. */
@@ -16,9 +16,12 @@ export function MiniPlayer() {
   const playback = useStore((s) => s.playback)
   const volume = useStore((s) => s.volume)
   const isAdmin = useStore((s) => s.auth?.role === 'admin')
+  const audioStatus = useStore((s) => s.audioStatus)
+  const audioPaused = useStore((s) => s.audioPaused)
+  const needsPlay = useStore((s) => s.needsPlay)
   const navigate = useNavigate()
   const position = usePlaybackClock(playback)
-  const playing = isAudioPlaying()
+  const listening = !audioPaused && !needsPlay && (audioStatus === 'playing' || audioStatus === 'connecting' || audioStatus === 'reconnecting')
 
   const skip = async (dir: 'prev' | 'next') => {
     try {
@@ -37,7 +40,7 @@ export function MiniPlayer() {
 
   return (
     <div className="border-border-muted bg-background/95 sticky bottom-0 z-40 border-t backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
         <SongArtwork
           hasCover={playback.coverUrl !== null}
           coverSrc={playback.coverUrl ?? undefined}
@@ -45,7 +48,7 @@ export function MiniPlayer() {
         />
         <div className="min-w-0 flex-1">
           <p className="text-foreground-intense truncate text-sm font-medium">{playback.title}</p>
-          <p className="text-foreground-muted truncate text-xs">{playback.artist || '\u00a0'}</p>
+          <p className="text-foreground-muted truncate text-xs">{playback.artist || '未知艺术家'} · {audioStatus === 'playing' ? '直播中' : audioStatus === 'reconnecting' ? '正在重连' : audioStatus === 'connecting' ? '正在连接' : audioStatus === 'error' ? '连接异常' : '已暂停'}</p>
         </div>
         <div className="hidden w-44 items-center gap-2 sm:flex">
           <Progress value={pct} className="min-w-0 flex-1" aria-label="播放进度" />
@@ -59,18 +62,8 @@ export function MiniPlayer() {
               <Button
                 variant="ghost"
                 size="icon-md"
-                aria-label={muted ? '取消静音' : '静音'}
-                onClick={(e) => {
-                  if (muted) {
-                    useStore.getState().setVolume(0.6)
-                    setAudioVolume(0.6)
-                  } else {
-                    useStore.getState().setVolume(0)
-                    setAudioVolume(0)
-                  }
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
+                className="min-h-11 min-w-11"
+                aria-label="调整音量"
               />
             }
           >
@@ -78,7 +71,18 @@ export function MiniPlayer() {
           </PopoverTrigger>
           <PopoverContent side="top" align="center" className="w-48">
             <div className="flex items-center gap-3 px-1 py-1">
-              {muted ? <VolumeOff className="text-foreground-muted size-4 shrink-0" /> : <Volume2 className="text-foreground-muted size-4 shrink-0" />}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={muted ? '取消静音' : '静音'}
+                onClick={() => {
+                  const next = muted ? 0.6 : 0
+                  useStore.getState().setVolume(next)
+                  setAudioVolume(next)
+                }}
+              >
+                {muted ? <VolumeOff /> : <Volume2 />}
+              </Button>
               <Slider
                 value={volume}
                 min={0}
@@ -103,6 +107,7 @@ export function MiniPlayer() {
           <Button
             variant="ghost"
             size="icon-md"
+            className="hidden sm:inline-flex"
             aria-label="上一首"
             onClick={() => void skip('prev')}
           >
@@ -112,15 +117,17 @@ export function MiniPlayer() {
         <Button
           variant="outline"
           size="icon-md"
-          aria-label={playing ? '暂停播放' : '继续播放'}
-          onClick={() => (playing ? pauseAudio() : resumeAudio())}
+          className="min-h-11 min-w-11"
+          aria-label={listening ? '暂停收听' : '继续收听'}
+          onClick={() => (listening ? pauseAudio() : resumeAudio())}
         >
-          {playing ? <PlayerPause /> : <PlayerPlay />}
+          {listening ? <PlayerPause /> : <PlayerPlay />}
         </Button>
         {isAdmin && (
           <Button
             variant="ghost"
             size="icon-md"
+            className="hidden sm:inline-flex"
             aria-label="下一首"
             onClick={() => void skip('next')}
           >
@@ -130,6 +137,7 @@ export function MiniPlayer() {
         <Button
           variant="ghost"
           size="icon-md"
+          className="hidden sm:inline-flex"
           aria-label="打开播放器"
           onClick={() => navigate('/player')}
         >

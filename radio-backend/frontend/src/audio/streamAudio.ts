@@ -26,6 +26,10 @@ let lastProgressAt = 0
 let lastReconnectAt = 0
 let watchdogStarted = false
 
+function setStatus(status: import('@/store').AudioStatus) {
+  useStore.getState().setAudioStatus(status)
+}
+
 /** 无数据推进多久后强制重连。网络半断 / 服务端静默时元素既不会 error 也不会 ended，
  *  会一直卡在 waiting —— 这是"掉线后不能快速重连"的主因。 */
 const STALL_RECONNECT_MS = 8000
@@ -48,13 +52,15 @@ function ensureAudio(): HTMLAudioElement {
   const el = new Audio()
   el.preload = 'none'
   // 恢复持久化的音量（默认 0.8）。
-  const raw = Number(localStorage.getItem('rakuraku.volume'))
+  const stored = localStorage.getItem('rakuraku.volume')
+  const raw = stored === null ? Number.NaN : Number(stored)
   el.volume = Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.8
   el.addEventListener('ended', () => {
     // Server closed the stream (skip/prev resync or idle timeout) → rejoin live edge.
     reconnect()
   })
   el.addEventListener('error', () => {
+    setStatus('reconnecting')
     errorRetries += 1
     if (errorRetries > 12 && !connectionErrorNotified) {
       connectionErrorNotified = true
@@ -65,6 +71,7 @@ function ensureAudio(): HTMLAudioElement {
     scheduleRetry()
   })
   el.addEventListener('playing', () => {
+    setStatus('playing')
     cancelRetry()
     errorRetries = 0
     connectionErrorNotified = false
@@ -72,6 +79,9 @@ function ensureAudio(): HTMLAudioElement {
   })
   el.addEventListener('timeupdate', () => {
     lastProgressAt = Date.now()
+  })
+  el.addEventListener('waiting', () => {
+    if (!useStore.getState().audioPaused) setStatus('reconnecting')
   })
   audio = el
   lastProgressAt = Date.now()
@@ -103,6 +113,7 @@ export function reconnect() {
   lastReconnectAt = now
   reconnectNonce += 1
   lastProgressAt = now
+  setStatus('reconnecting')
   const el = ensureAudio()
   const sep = url.includes('?') ? '&' : '?'
   el.src = `${url}${sep}r=${reconnectNonce}`
@@ -155,12 +166,14 @@ async function tryPlay(el: HTMLAudioElement) {
     if (!userAuthorized) {
       // First contact: browser blocks sound until a user gesture.
       useStore.getState().setNeedsPlay(true)
+      setStatus('paused')
       return
     }
     const notAllowed = e instanceof DOMException && e.name === 'NotAllowedError'
     if (notAllowed) {
       // Autoplay gate (unlikely after first unlock): stay silent; the next
       // sync tick / watchdog retries.
+      setStatus('error')
       return
     }
     // Stream-level failure on a dead element: rejoin the live edge by
@@ -183,6 +196,7 @@ export function syncAudio() {
       el.removeAttribute('src')
       el.load()
     }
+    setStatus('idle')
     return
   }
 
@@ -194,6 +208,7 @@ export function syncAudio() {
     reconnectNonce += 1
     const sep = url.includes('?') ? '&' : '?'
     el.src = `${url}${sep}r=${reconnectNonce}`
+    setStatus(audioPaused || needsPlay ? 'paused' : 'connecting')
     void tryPlay(el)
     return
   }
@@ -209,6 +224,7 @@ export function resumeAudio() {
   userAuthorized = true
   useStore.getState().setNeedsPlay(false)
   useStore.getState().setAudioPaused(false)
+  setStatus('connecting')
   const el = ensureAudio()
   void tryPlay(el)
 }
@@ -219,6 +235,7 @@ export function pauseAudio() {
   const el = ensureAudio()
   el.pause()
   useStore.getState().setAudioPaused(true)
+  setStatus('paused')
 }
 
 export function isAudioPlaying(): boolean {

@@ -35,7 +35,8 @@ export function LyricsPanel({ playback, positionMs, className }: LyricsPanelProp
     const line = containerRef.current?.querySelector<HTMLElement>('[data-lyrics-active="true"]')
     // scrollIntoView walks up to whichever ancestor actually scrolls
     // (the panel's own overflow container, or a wrapping ScrollArea).
-    line?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    line?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
   }, [activeIndex, songKey])
 
   if (!lines) {
@@ -45,7 +46,7 @@ export function LyricsPanel({ playback, positionMs, className }: LyricsPanelProp
     const noLyrics = playback?.lyricsKnown === true
     return (
       <p className={cn('text-foreground-subtle py-10 text-center text-sm', className)}>
-        {noLyrics ? '暂无歌词' : playback ? '歌词加载中…' : ''}
+        {noLyrics ? '暂无歌词' : playback ? '歌词加载中…' : '播放开始后，歌词会显示在这里。'}
       </p>
     )
   }
@@ -67,7 +68,7 @@ export function LyricsPanel({ playback, positionMs, className }: LyricsPanelProp
           data-lyrics-active={i === activeIndex}
           aria-current={i === activeIndex || undefined}
           className={cn(
-            'py-1.5 text-sm leading-relaxed transition-colors',
+            'py-2 text-base leading-relaxed transition-colors',
             i === activeIndex
               ? 'lyrics-active text-foreground-intense font-medium'
               : 'lyrics-inactive',

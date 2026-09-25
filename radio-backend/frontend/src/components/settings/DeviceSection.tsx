@@ -97,7 +97,7 @@ function DeviceNameForm({ initialValue = '' }: { initialValue?: string }) {
 }
 
 /** 已登录设备：身份展示 + 行内改名（铅笔）+ 提权（盾牌）+ 退出（需确认）。 */
-function DeviceIdentity() {
+function DeviceIdentity({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const auth = useStore((s) => s.auth)
   const navigate = useNavigate()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -181,7 +181,7 @@ function DeviceIdentity() {
             <p className="text-foreground-intense truncate text-sm font-semibold">{auth?.display_name ?? '玩家'}</p>
             <Badge variant={isAdmin ? 'primary' : 'soft'} size="xs" className="mt-0.5">
               {isAdmin ? <CrownFilled /> : <UserFilled />}
-              {isAdmin ? '👑 房主 (本地管理员)' : '普通玩家 (听众)'}
+              {isAdmin ? '房主 (本地管理员)' : '普通玩家 (听众)'}
             </Badge>
           </div>
         )}
@@ -194,7 +194,7 @@ function DeviceIdentity() {
 
       {isAdmin && (
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<a href="#admin-panel-title" />}>
+          <Button variant="outline" onClick={onOpenAdmin}>
             <LayoutDashboard data-icon="start" />
             电台管理
           </Button>
@@ -226,17 +226,17 @@ function DeviceIdentity() {
   )
 }
 
-export function DeviceSection() {
+export function DeviceSection({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const auth = useStore((s) => s.auth)
 
   return (
-    <section aria-labelledby="settings-device-heading" className="rounded-2xl border border-border-muted bg-background-subtle p-4 sm:p-5">
-      <h2 id="settings-device-heading" className="mb-4 flex items-center gap-2 text-base font-semibold">
+    <section aria-labelledby="settings-device-heading" className="app-panel p-4 sm:p-6">
+      <h2 id="settings-device-heading" className="app-section-title mb-4 flex items-center gap-2">
         <DeviceMobile data-icon="start" />
         设备
       </h2>
       <div className="flex flex-col gap-4">
-        {auth ? <DeviceIdentity /> : <DeviceNameForm />}
+        {auth ? <DeviceIdentity onOpenAdmin={onOpenAdmin} /> : <DeviceNameForm />}
       </div>
     </section>
   )

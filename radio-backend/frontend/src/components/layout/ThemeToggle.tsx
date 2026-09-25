@@ -12,6 +12,7 @@ export function ThemeToggle({ resolvedTheme }: { resolvedTheme: string | undefin
     <Button
       variant="ghost"
       size="icon-md"
+      className="min-h-11 min-w-11"
       aria-label={`切换主题（当前：${theme ?? 'system'}，下一个：${next}）`}
       onClick={() => setTheme(next)}
     >

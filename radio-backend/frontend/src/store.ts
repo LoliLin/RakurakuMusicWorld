@@ -80,6 +80,8 @@ export interface Playback {
   timestampMs: number
 }
 
+export type AudioStatus = 'idle' | 'connecting' | 'playing' | 'paused' | 'reconnecting' | 'error'
+
 interface AppStore {
   station: StationInfo | null
   auth: AuthUser | null
@@ -90,6 +92,7 @@ interface AppStore {
   favoriteSongs: FavoriteSong[]
   wsConnected: boolean
   audioPaused: boolean
+  audioStatus: AudioStatus
   needsPlay: boolean
   accent: AccentTheme
   volume: number
@@ -100,6 +103,7 @@ interface AppStore {
   setHistory: (history: HistoryItem[]) => void
   setWsConnected: (connected: boolean) => void
   setAudioPaused: (paused: boolean) => void
+  setAudioStatus: (status: AudioStatus) => void
   setNeedsPlay: (needs: boolean) => void
   setAccent: (accent: AccentTheme) => void
   setVolume: (volume: number) => void
@@ -124,10 +128,12 @@ export const useStore = create<AppStore>((set, get) => ({
   favoriteSongs: loadFavorites(),
   wsConnected: false,
   audioPaused: false,
+  audioStatus: 'idle',
   needsPlay: false,
   accent: loadAccent(),
   volume: (() => {
-    const raw = Number(localStorage.getItem('rakuraku.volume'))
+    const stored = localStorage.getItem('rakuraku.volume')
+    const raw = stored === null ? Number.NaN : Number(stored)
     return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.8
   })(),
 
@@ -137,6 +143,7 @@ export const useStore = create<AppStore>((set, get) => ({
   setHistory: (history) => set({ history }),
   setWsConnected: (wsConnected) => set({ wsConnected }),
   setAudioPaused: (audioPaused) => set({ audioPaused }),
+  setAudioStatus: (audioStatus) => set((state) => state.audioStatus === audioStatus ? state : { audioStatus }),
   setNeedsPlay: (needsPlay) => set({ needsPlay }),
   setAccent: (accent) => {
     persistAccent(accent)

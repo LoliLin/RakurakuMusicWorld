@@ -132,12 +132,12 @@ export function ServerSection() {
   return (
     <section
       aria-labelledby="server-settings-title"
-      className="border-border-muted bg-background-subtle rounded-xl border p-4 sm:p-5"
+      className="app-panel p-4 sm:p-6"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2
           id="server-settings-title"
-          className="text-foreground-intense flex items-center gap-2 text-lg font-semibold"
+          className="app-section-title flex items-center gap-2"
         >
           <DeviceMobile className="text-primary size-5" aria-hidden="true" />
           服务器与世界连接
